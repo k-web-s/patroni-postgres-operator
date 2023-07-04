@@ -1,0 +1,15 @@
+domain: kwebs.cloud
+layout:
+- go.kubebuilder.io/v3
+projectName: kwebs-patroni-postgres-operator
+repo: github.com/k-web-s/patroni-postgres-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kwebs.cloud
+  kind: PatroniPostgres
+  path: github.com/k-web-s/patroni-postgres-operator/api/v1alpha1
+  version: v1alpha1
+version: "3"

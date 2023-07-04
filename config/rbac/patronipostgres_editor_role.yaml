@@ -1,0 +1,24 @@
+# permissions for end users to edit patronipostgres.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: patronipostgres-editor-role
+rules:
+- apiGroups:
+  - kwebs.cloud
+  resources:
+  - patronipostgres
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kwebs.cloud
+  resources:
+  - patronipostgres/status
+  verbs:
+  - get

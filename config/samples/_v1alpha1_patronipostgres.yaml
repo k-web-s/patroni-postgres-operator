@@ -1,0 +1,7 @@
+apiVersion: kwebs.cloud/v1alpha1
+kind: PatroniPostgres
+metadata:
+  name: patronipostgres-sample
+spec:
+  # Add fields here
+  foo: bar

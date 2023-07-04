@@ -1,0 +1,20 @@
+# permissions for end users to view patronipostgres.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: patronipostgres-viewer-role
+rules:
+- apiGroups:
+  - kwebs.cloud
+  resources:
+  - patronipostgres
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kwebs.cloud
+  resources:
+  - patronipostgres/status
+  verbs:
+  - get

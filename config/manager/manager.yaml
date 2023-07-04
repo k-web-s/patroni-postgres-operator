@@ -1,0 +1,55 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: kwebs-patroni-postgres-operator
+  name: kwebs-patroni-postgres-operator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kwebs-patroni-postgres-operator
+  namespace: kwebs-patroni-postgres-operator
+  labels:
+    control-plane: kwebs-patroni-postgres-operator
+spec:
+  selector:
+    matchLabels:
+      control-plane: kwebs-patroni-postgres-operator
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        control-plane: kwebs-patroni-postgres-operator
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - args:
+            - --leader-elect
+          image: ghcr.io/k-web-s/patroni-postgres-operator
+          name: manager
+          securityContext:
+            allowPrivilegeEscalation: false
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 100m
+              memory: 30Mi
+            requests:
+              cpu: 100m
+              memory: 20Mi
+      serviceAccountName: kwebs-patroni-postgres-operator
+      terminationGracePeriodSeconds: 10
