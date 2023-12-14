@@ -27,6 +27,7 @@ package upgrade
 
 import (
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -45,6 +46,7 @@ import (
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/configmap"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/pvc"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
+	"github.com/k-web-s/patroni-postgres-operator/private/upgrade/preupgrade"
 )
 
 var (
@@ -55,12 +57,23 @@ var (
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
 
 func upgradePrimary(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl.Result, err error) {
+	// preprocessJob must exist at this point
+	preprocessJob := &batchv1.Job{}
+	if err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: preupgradeJobname(p)}, preprocessJob); err != nil {
+		return
+	}
+
 	job := &batchv1.Job{}
 	jobname := fmt.Sprintf("%s-up", p.Name)
 
 	err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: jobname}, job)
 	if err != nil {
 		if !errors.IsNotFound(err) {
+			return
+		}
+
+		var initdbArgs string
+		if initdbArgs, err = getInitdbArgsFromJob(ctx, preprocessJob); err != nil {
 			return
 		}
 
@@ -104,6 +117,10 @@ func upgradePrimary(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl
 									{
 										Name:  "NEW",
 										Value: fmt.Sprintf("%d", p.Status.UpgradeVersion),
+									},
+									{
+										Name:  "INITDB_ARGS",
+										Value: initdbArgs,
 									},
 								},
 								VolumeMounts: []v1.VolumeMount{
@@ -161,6 +178,10 @@ func upgradePrimary(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl
 		}
 
 		propagationPolicy := metav1.DeletePropagationBackground
+		if err = ctx.Delete(ctx, preprocessJob, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
+			return
+		}
+
 		if err = ctx.Delete(ctx, job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
 			return
 		}
@@ -170,6 +191,9 @@ func upgradePrimary(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl
 
 	return
 }
+
+// +kubebuilder:rbac:groups="",resources=pods,verbs=list
+// +kubebuilder:rbac:groups="",resources=pods/log,verbs=get
 
 func getDBIDFromJob(ctx pcontext.Context, job *batchv1.Job) (dbid string, err error) {
 	var ls labels.Selector
@@ -206,6 +230,61 @@ func getDBIDFromJob(ctx pcontext.Context, job *batchv1.Job) (dbid string, err er
 	}
 
 	dbid = strings.TrimSpace(string(buf[:n]))
+
+	return
+}
+
+func getInitdbArgsFromJob(ctx pcontext.Context, job *batchv1.Job) (args string, err error) {
+	var ls labels.Selector
+	if ls, err = metav1.LabelSelectorAsSelector(job.Spec.Selector); err != nil {
+		return
+	}
+
+	var pods v1.PodList
+	if err = ctx.List(ctx, &pods, &client.ListOptions{LabelSelector: ls}); err != nil {
+		return
+	}
+
+	if len(pods.Items) == 0 {
+		err = fmt.Errorf("no pod found for preprocess job")
+		return
+	}
+
+	pod := &pods.Items[0]
+
+	var tailLines int64 = 1
+	request := ctx.Clientset().CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{
+		TailLines: &tailLines,
+	})
+	var logs io.ReadCloser
+	if logs, err = request.Stream(ctx); err != nil {
+		return
+	}
+	defer logs.Close()
+	buf := make([]byte, 2048)
+	n, _ := logs.Read(buf)
+	if n == 0 {
+		err = fmt.Errorf("short read from pod logs")
+		return
+	}
+
+	var cfg preupgrade.Config
+	if err = json.Unmarshal(buf[:n], &cfg); err != nil {
+		return
+	}
+
+	var argsa []string
+	if cfg.Locale != "" {
+		argsa = append(argsa, fmt.Sprintf("--locale=%s", cfg.Locale))
+	}
+	if cfg.Encoding != "" {
+		argsa = append(argsa, fmt.Sprintf("--encoding=%s", cfg.Encoding))
+	}
+	if cfg.DataChecksums {
+		argsa = append(argsa, "--data-checksums")
+	}
+
+	args = strings.Join(argsa, " ")
 
 	return
 }

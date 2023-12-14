@@ -119,6 +119,7 @@ type PatroniPostgresState string
 const (
 	PatroniPostgresStateScaling            PatroniPostgresState = "scaling"
 	PatroniPostgresStateReady              PatroniPostgresState = "ready"
+	PatroniPostgresStateUpgradePreupgrade  PatroniPostgresState = "upgrade-preupgrade"
 	PatroniPostgresStateUpgradeScaleDown   PatroniPostgresState = "upgrade-scaledown"
 	PatroniPostgresStateUpgradePrimary     PatroniPostgresState = "upgrade-primary"
 	PatroniPostgresStateUpgradeSecondaries PatroniPostgresState = "upgrade-secondaries"

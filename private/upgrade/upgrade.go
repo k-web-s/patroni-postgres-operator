@@ -38,6 +38,11 @@ import (
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
 )
 
+const (
+	operatorImage    = "github.com/k-web-s/patroni-postgres-operator"
+	helperModeEnvVar = "MODE"
+)
+
 func init() {
 	// escape '$' in embedded scripts
 	primaryUpgrade = strings.ReplaceAll(primaryUpgrade, "$", "$$")
@@ -48,6 +53,16 @@ func init() {
 func Do(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl.Result, err error) {
 	switch p.Status.State {
 	case v1alpha1.PatroniPostgresStateReady:
+		p.Status.State = v1alpha1.PatroniPostgresStateUpgradePreupgrade
+		ret.Requeue = true
+		return
+	case v1alpha1.PatroniPostgresStateUpgradePreupgrade:
+		var ok bool
+		ok, ret, err = checkPreupgradeJob(ctx, p)
+		if !ok {
+			return
+		}
+
 		var sts *appsv1.StatefulSet
 		sts, err = statefulset.GetK8SStatefulSet(ctx, p)
 		if err != nil {

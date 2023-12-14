@@ -52,7 +52,7 @@ const (
 	patroniPort       = 8008
 	patroniPortName   = "patroni"
 
-	patroniSuperuserUsername   = "postgres"
+	PatroniSuperuserUsername   = "postgres"
 	patroniReplicationUsername = "standby"
 
 	DataVolumeMountPath = "/var/lib/postgresql"
@@ -203,7 +203,7 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 							},
 							{
 								Name:  "PATRONI_SUPERUSER_USERNAME",
-								Value: patroniSuperuserUsername,
+								Value: PatroniSuperuserUsername,
 							},
 							{
 								Name: "PATRONI_SUPERUSER_PASSWORD",
