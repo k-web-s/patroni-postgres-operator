@@ -29,6 +29,7 @@ import (
 	gocontext "context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -92,7 +93,10 @@ func (c *context) CommonLabels() (ret map[string]string) {
 
 // ListOption returns filter matching owned objects
 func (c *context) ListOption() (lo client.ListOption, err error) {
-	return client.MatchingLabels(c.CommonLabels()), nil
+	return &client.ListOptions{
+		Namespace:     c.pp.Namespace,
+		LabelSelector: labels.SelectorFromSet(c.CommonLabels()),
+	}, nil
 }
 
 func (c *context) SetMeta(m metav1.Object) error {
