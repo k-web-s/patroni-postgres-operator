@@ -38,8 +38,11 @@ import (
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
 )
 
+var (
+	operatorImage = "ghcr.io/k-web-s/patroni-postgres-operator"
+)
+
 const (
-	operatorImage    = "github.com/k-web-s/patroni-postgres-operator"
 	helperModeEnvVar = "MODE"
 )
 
