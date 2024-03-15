@@ -147,5 +147,5 @@ func checkPreupgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (read
 }
 
 func preupgradeJobname(p *v1alpha1.PatroniPostgres) string {
-	return fmt.Sprintf("%s-preprocess", p.Name)
+	return fmt.Sprintf("%s-preupgrade", p.Name)
 }
