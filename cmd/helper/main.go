@@ -32,6 +32,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/namsral/flag"
@@ -87,6 +88,28 @@ var modes = map[string]func(context.Context) error{
 	preupgrade.ModeString: preupgradefn,
 }
 
+func connectdb(ctx context.Context) (err error) {
+	sleep := 250 * time.Millisecond
+	connects := 0
+
+	for {
+		if dbconn, err = pgx.Connect(ctx, fmt.Sprintf(
+			"host=%s port=%d user=%s password=%s database=%s sslmode=disable",
+			*dbhost, *dbport, *dbuser, *dbpassword, *dbname,
+		)); err == nil {
+			return
+		}
+		connects++
+
+		if connects == 5 {
+			return
+		}
+
+		time.Sleep(sleep)
+		sleep = sleep * 2
+	}
+}
+
 func main() {
 	var err error
 
@@ -99,11 +122,7 @@ func main() {
 
 	ctx := context.Background()
 
-	dbconn, err = pgx.Connect(ctx, fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s database=%s sslmode=disable",
-		*dbhost, *dbport, *dbuser, *dbpassword, *dbname,
-	))
-	if err != nil {
+	if err = connectdb(ctx); err != nil {
 		log.Fatal(err)
 	}
 	defer dbconn.Close(ctx)
