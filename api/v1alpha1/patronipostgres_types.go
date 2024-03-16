@@ -123,6 +123,7 @@ const (
 	PatroniPostgresStateUpgradeScaleDown   PatroniPostgresState = "upgrade-scaledown"
 	PatroniPostgresStateUpgradePrimary     PatroniPostgresState = "upgrade-primary"
 	PatroniPostgresStateUpgradeSecondaries PatroniPostgresState = "upgrade-secondaries"
+	PatroniPostgresStateUpgradePostupgrade PatroniPostgresState = "upgrade-postupgrade"
 )
 
 // PatroniPostgresStatus defines the observed state of PatroniPostgres

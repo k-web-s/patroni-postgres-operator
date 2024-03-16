@@ -23,46 +23,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package upgrade
+package postupgrade
 
-import (
-	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
-	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
-
-	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
-	"github.com/k-web-s/patroni-postgres-operator/private/upgrade/preupgrade"
+const (
+	ModeString = "postupgrade"
 )
-
-func checkPreupgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ready bool, ret ctrl.Result, err error) {
-	job := &batchv1.Job{}
-	jobname := preupgradeJobname(p)
-
-	err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: jobname}, job)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return
-		}
-
-		ret, err = createHelperJob(ctx, p, preupgrade.ModeString)
-
-		return
-	}
-
-	if job.Status.Succeeded+job.Status.Failed > 0 {
-		if job.Status.Succeeded > 0 {
-			ready = true
-		} else {
-			err = ctx.Delete(ctx, job)
-			ret.Requeue = true
-		}
-	}
-
-	return
-}
-
-func preupgradeJobname(p *v1alpha1.PatroniPostgres) string {
-	return helperJobname(p, preupgrade.ModeString)
-}

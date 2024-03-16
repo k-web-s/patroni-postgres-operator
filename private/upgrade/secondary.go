@@ -49,8 +49,7 @@ const (
 func upgradeSecondaries(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl.Result, err error) {
 	// shortcut if handling one-member cluster
 	if len(p.Status.VolumeStatuses) == 1 {
-		p.Status.State = v1alpha1.PatroniPostgresStateReady
-		p.Status.UpgradeVersion = 0
+		p.Status.State = v1alpha1.PatroniPostgresStateUpgradePostupgrade
 
 		ret.Requeue = true
 
@@ -99,8 +98,7 @@ func upgradeSecondaries(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret 
 			}
 		}
 
-		p.Status.State = v1alpha1.PatroniPostgresStateReady
-		p.Status.UpgradeVersion = 0
+		p.Status.State = v1alpha1.PatroniPostgresStateUpgradePostupgrade
 
 		ret.Requeue = true
 	}

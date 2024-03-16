@@ -97,6 +97,9 @@ func Do(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl.Result, err
 
 	case v1alpha1.PatroniPostgresStateUpgradeSecondaries:
 		return upgradeSecondaries(ctx, p)
+
+	case v1alpha1.PatroniPostgresStateUpgradePostupgrade:
+		return handlePostupgrade(ctx, p)
 	}
 
 	return

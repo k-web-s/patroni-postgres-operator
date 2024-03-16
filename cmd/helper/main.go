@@ -37,6 +37,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/namsral/flag"
 
+	"github.com/k-web-s/patroni-postgres-operator/private/upgrade/postupgrade"
 	"github.com/k-web-s/patroni-postgres-operator/private/upgrade/preupgrade"
 )
 
@@ -50,6 +51,34 @@ var (
 )
 
 var dbconn *pgx.Conn
+
+func connectdbname(ctx context.Context, name string) (conn *pgx.Conn, err error) {
+	sleep := 250 * time.Millisecond
+	connects := 0
+
+	for {
+		if conn, err = pgx.Connect(ctx, fmt.Sprintf(
+			"host=%s port=%d user=%s password=%s database=%s sslmode=disable",
+			*dbhost, *dbport, *dbuser, *dbpassword, name,
+		)); err == nil {
+			return
+		}
+		connects++
+
+		if connects == 5 {
+			return
+		}
+
+		time.Sleep(sleep)
+		sleep = sleep * 2
+	}
+}
+
+func connectdb(ctx context.Context) (err error) {
+	dbconn, err = connectdbname(ctx, *dbname)
+
+	return
+}
 
 func preupgradefn(ctx context.Context) (err error) {
 	var cfg preupgrade.Config
@@ -84,30 +113,58 @@ func preupgradefn(ctx context.Context) (err error) {
 	return
 }
 
-var modes = map[string]func(context.Context) error{
-	preupgrade.ModeString: preupgradefn,
+func readdatabases(ctx context.Context) (databases []string, err error) {
+	rows, err := dbconn.Query(ctx, "SELECT datname FROM pg_database WHERE datallowconn")
+	if err != nil {
+		return
+	}
+
+	for rows.Next() {
+		var database string
+		if err = rows.Scan(&database); err != nil {
+			return
+		}
+
+		databases = append(databases, database)
+	}
+
+	err = rows.Err()
+
+	return
 }
 
-func connectdb(ctx context.Context) (err error) {
-	sleep := 250 * time.Millisecond
-	connects := 0
+func analyzedatabase(ctx context.Context, database string) (err error) {
+	log.Printf("Running ANALYZE on database '%s'", database)
 
-	for {
-		if dbconn, err = pgx.Connect(ctx, fmt.Sprintf(
-			"host=%s port=%d user=%s password=%s database=%s sslmode=disable",
-			*dbhost, *dbport, *dbuser, *dbpassword, *dbname,
-		)); err == nil {
-			return
-		}
-		connects++
-
-		if connects == 5 {
-			return
-		}
-
-		time.Sleep(sleep)
-		sleep = sleep * 2
+	conn, err := connectdbname(ctx, database)
+	if err != nil {
+		return
 	}
+	defer conn.Close(ctx)
+
+	_, err = conn.Exec(ctx, "ANALYZE")
+
+	return
+}
+
+func postupgradefn(ctx context.Context) (err error) {
+	databases, err := readdatabases(ctx)
+	if err != nil {
+		return
+	}
+
+	for _, database := range databases {
+		if err = analyzedatabase(ctx, database); err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+var modes = map[string]func(context.Context) error{
+	preupgrade.ModeString:  preupgradefn,
+	postupgrade.ModeString: postupgradefn,
 }
 
 func main() {

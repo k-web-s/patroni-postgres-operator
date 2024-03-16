@@ -33,12 +33,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
-	"github.com/k-web-s/patroni-postgres-operator/private/upgrade/preupgrade"
+	"github.com/k-web-s/patroni-postgres-operator/private/upgrade/postupgrade"
 )
 
-func checkPreupgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ready bool, ret ctrl.Result, err error) {
+func handlePostupgrade(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl.Result, err error) {
 	job := &batchv1.Job{}
-	jobname := preupgradeJobname(p)
+	jobname := postupgradeJobname(p)
 
 	err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: jobname}, job)
 	if err != nil {
@@ -46,23 +46,24 @@ func checkPreupgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (read
 			return
 		}
 
-		ret, err = createHelperJob(ctx, p, preupgrade.ModeString)
+		ret, err = createHelperJob(ctx, p, postupgrade.ModeString)
 
 		return
 	}
 
 	if job.Status.Succeeded+job.Status.Failed > 0 {
 		if job.Status.Succeeded > 0 {
-			ready = true
-		} else {
-			err = ctx.Delete(ctx, job)
-			ret.Requeue = true
+			p.Status.State = v1alpha1.PatroniPostgresStateReady
+			p.Status.UpgradeVersion = 0
 		}
+
+		err = ctx.Delete(ctx, job)
+		ret.Requeue = true
 	}
 
 	return
 }
 
-func preupgradeJobname(p *v1alpha1.PatroniPostgres) string {
-	return helperJobname(p, preupgrade.ModeString)
+func postupgradeJobname(p *v1alpha1.PatroniPostgres) string {
+	return helperJobname(p, postupgrade.ModeString)
 }
