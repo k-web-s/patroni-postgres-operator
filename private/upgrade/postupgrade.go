@@ -46,7 +46,7 @@ func handlePostupgrade(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret c
 			return
 		}
 
-		ret, err = createHelperJob(ctx, p, postupgrade.ModeString)
+		ret, err = createUpgradeJob(ctx, p, postupgrade.ModeString)
 
 		return
 	}
@@ -65,5 +65,5 @@ func handlePostupgrade(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret c
 }
 
 func postupgradeJobname(p *v1alpha1.PatroniPostgres) string {
-	return helperJobname(p, postupgrade.ModeString)
+	return upgradeJobname(p, postupgrade.ModeString)
 }

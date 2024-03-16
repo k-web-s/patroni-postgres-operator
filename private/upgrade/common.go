@@ -42,13 +42,13 @@ import (
 
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
 
-func createHelperJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode string) (ret ctrl.Result, err error) {
+func createUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode string) (ret ctrl.Result, err error) {
 	var activeDeadlineSeconds int64 = 60
 	var completions int32 = 1
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: helperJobname(p, mode),
+			Name: upgradeJobname(p, mode),
 		},
 		Spec: batchv1.JobSpec{
 			ActiveDeadlineSeconds: &activeDeadlineSeconds,
@@ -59,7 +59,7 @@ func createHelperJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode str
 						{
 							Name:    mode,
 							Image:   operatorImage,
-							Command: []string{"/helper"},
+							Command: []string{"/upgrade"},
 							Env: []v1.EnvVar{
 								{
 									Name:  "DBHOST",
@@ -116,6 +116,6 @@ func createHelperJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode str
 	return
 }
 
-func helperJobname(p *v1alpha1.PatroniPostgres, mode string) string {
+func upgradeJobname(p *v1alpha1.PatroniPostgres, mode string) string {
 	return fmt.Sprintf("%s-%s", p.Name, mode)
 }

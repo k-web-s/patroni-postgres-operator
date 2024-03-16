@@ -46,7 +46,7 @@ func checkPreupgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (read
 			return
 		}
 
-		ret, err = createHelperJob(ctx, p, preupgrade.ModeString)
+		ret, err = createUpgradeJob(ctx, p, preupgrade.ModeString)
 
 		return
 	}
@@ -64,5 +64,5 @@ func checkPreupgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (read
 }
 
 func preupgradeJobname(p *v1alpha1.PatroniPostgres) string {
-	return helperJobname(p, preupgrade.ModeString)
+	return upgradeJobname(p, preupgrade.ModeString)
 }
