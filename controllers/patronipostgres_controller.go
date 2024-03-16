@@ -114,7 +114,7 @@ func (r *PatroniPostgresReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// handle upgrade
 	if instance.Status.UpgradeVersion != 0 {
-		return upgrade.Do(wctx, instance)
+		return upgrade.Handle(wctx, instance)
 	}
 
 	if instance.Status.State == v1alpha1.PatroniPostgresStateReady {

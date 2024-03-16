@@ -26,70 +26,37 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package upgrade
 
 import (
-	"fmt"
+	appsv1 "k8s.io/api/apps/v1"
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
-	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
-	"github.com/k-web-s/patroni-postgres-operator/private/upgrade/postupgrade"
 )
 
-var (
-	errPostupgradeJobFailed = fmt.Errorf("preupgrade job failed")
-)
-
-type postupgradeHandler struct {
+type scaledownHandler struct {
 }
 
-func (postupgradeHandler) name() v1alpha1.PatroniPostgresState {
-	return v1alpha1.PatroniPostgresStateUpgradePostupgrade
+func (scaledownHandler) name() v1alpha1.PatroniPostgresState {
+	return v1alpha1.PatroniPostgresStateUpgradeScaleDown
 }
 
-func (postupgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (done bool, err error) {
-	// Ensure cluster is up & running
-	if _, err = statefulset.ReconcileSts(ctx, p); err != nil {
-		return
-	}
-
-	job := &batchv1.Job{}
-	jobname := postupgradeJobname(p)
-
-	err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: jobname}, job)
+func (scaledownHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (done bool, err error) {
+	// Ensure cluster is scaled down
+	var sts *appsv1.StatefulSet
+	sts, err = statefulset.GetK8SStatefulSet(ctx, p)
 	if err != nil {
-		if !errors.IsNotFound(err) {
-			return
-		}
-
-		err = createUpgradeJob(ctx, p, postupgrade.ModeString)
-
 		return
 	}
 
-	if job.Status.Succeeded > 0 {
-		done = true
+	replicas := int32(0)
+	sts.Spec.Replicas = &replicas
+	if err = ctx.Update(ctx, sts); err != nil {
+		return
 	}
 
-	if job.Status.Succeeded+job.Status.Failed > 0 {
-		deletePropagationPolicy := metav1.DeletePropagationForeground
+	p.Status.Ready = sts.Status.ReadyReplicas
 
-		if err = ctx.Delete(ctx, job, &client.DeleteOptions{PropagationPolicy: &deletePropagationPolicy}); err != nil {
-			return
-		}
-	}
-
-	if job.Status.Failed > 0 {
-		err = errPostupgradeJobFailed
-	}
+	done = sts.Status.AvailableReplicas == 0
 
 	return
-}
-
-func postupgradeJobname(p *v1alpha1.PatroniPostgres) string {
-	return upgradeJobname(p, postupgrade.ModeString)
 }

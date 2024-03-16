@@ -29,21 +29,32 @@ import (
 	_ "embed"
 	"strings"
 
-	appsv1 "k8s.io/api/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
-	"github.com/k-web-s/patroni-postgres-operator/private/controllers/configmap"
-	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
 )
 
 var (
 	operatorImage = "ghcr.io/k-web-s/patroni-postgres-operator"
 )
 
-const (
-	helperModeEnvVar = "MODE"
+type upgradehandler interface {
+	// name returns the Postgres State corresponding to upgrade step
+	name() v1alpha1.PatroniPostgresState
+
+	// handle processes an upgrade step.
+	// When finished, it must return done==true to indicate that this step is done
+	handle(pcontext.Context, *v1alpha1.PatroniPostgres) (done bool, err error)
+}
+
+type upgradestep struct {
+	handler upgradehandler
+	next    upgradehandler
+}
+
+var (
+	upgrademap = map[v1alpha1.PatroniPostgresState]*upgradestep{}
 )
 
 func init() {
@@ -51,55 +62,49 @@ func init() {
 	primaryUpgrade = strings.ReplaceAll(primaryUpgrade, "$", "$$")
 	primaryStream = strings.ReplaceAll(primaryStream, "$", "$$")
 	secondaryUpgrade = strings.ReplaceAll(secondaryUpgrade, "$", "$$")
+
+	var step *upgradestep
+	for _, handler := range []upgradehandler{
+		preupgradeHandler{},
+		scaledownHandler{},
+		primaryUpgradeHandler{},
+		secondaryUpgradeHandler{},
+		postupgradeHandler{},
+	} {
+		if step != nil {
+			step.next = handler
+		}
+
+		step = &upgradestep{
+			handler: handler,
+		}
+
+		upgrademap[step.handler.name()] = step
+	}
 }
 
-func Do(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl.Result, err error) {
-	switch p.Status.State {
-	case v1alpha1.PatroniPostgresStateReady:
+func Handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl.Result, err error) {
+	handler, ok := upgrademap[p.Status.State]
+	if !ok {
 		p.Status.State = v1alpha1.PatroniPostgresStateUpgradePreupgrade
 		ret.Requeue = true
 		return
-	case v1alpha1.PatroniPostgresStateUpgradePreupgrade:
-		var ok bool
-		ok, ret, err = checkPreupgradeJob(ctx, p)
-		if !ok {
-			return
-		}
+	}
 
-		var sts *appsv1.StatefulSet
-		sts, err = statefulset.GetK8SStatefulSet(ctx, p)
-		if err != nil {
-			return
-		}
-		replicas := int32(0)
-		sts.Spec.Replicas = &replicas
-		if err = ctx.Update(ctx, sts); err != nil {
-			return
-		}
-		p.Status.State = v1alpha1.PatroniPostgresStateUpgradeScaleDown
+	done, err := handler.handler.handle(ctx, p)
+	if err != nil {
 		return
-	case v1alpha1.PatroniPostgresStateUpgradeScaleDown:
-		var sts *appsv1.StatefulSet
-		sts, err = statefulset.GetK8SStatefulSet(ctx, p)
-		if err != nil {
-			return
+	}
+
+	if done {
+		if handler.next != nil {
+			p.Status.State = handler.next.name()
+		} else {
+			p.Status.State = v1alpha1.PatroniPostgresStateReady
+			p.Status.UpgradeVersion = 0
 		}
-		if sts.Status.AvailableReplicas == 0 {
-			if _, err = configmap.GetSyncLeader(ctx, p); err == nil {
-				p.Status.State = v1alpha1.PatroniPostgresStateUpgradePrimary
-				ret.Requeue = true
-			}
 
-			return
-		}
-	case v1alpha1.PatroniPostgresStateUpgradePrimary:
-		return upgradePrimary(ctx, p)
-
-	case v1alpha1.PatroniPostgresStateUpgradeSecondaries:
-		return upgradeSecondaries(ctx, p)
-
-	case v1alpha1.PatroniPostgresStateUpgradePostupgrade:
-		return handlePostupgrade(ctx, p)
+		ret.Requeue = true
 	}
 
 	return

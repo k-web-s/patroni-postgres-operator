@@ -26,16 +26,24 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package upgrade
 
 import (
+	"fmt"
+
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/configmap"
 )
+
+var (
+	errSecondaryUpgradeJobFailed = fmt.Errorf("secondary upgrade job failed")
+)
+
+type secondaryUpgradeHandler struct {
+}
 
 const (
 	rsyncPort     = 5873
@@ -44,15 +52,16 @@ const (
 	rsyncImage = "ghcr.io/rkojedzinszky/webhost-images/static"
 )
 
+func (secondaryUpgradeHandler) name() v1alpha1.PatroniPostgresState {
+	return v1alpha1.PatroniPostgresStateUpgradeSecondaries
+}
+
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;delete
 
-func upgradeSecondaries(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl.Result, err error) {
+func (secondaryUpgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (done bool, err error) {
 	// shortcut if handling one-member cluster
 	if len(p.Status.VolumeStatuses) == 1 {
-		p.Status.State = v1alpha1.PatroniPostgresStateUpgradePostupgrade
-
-		ret.Requeue = true
-
+		done = true
 		return
 	}
 
@@ -73,21 +82,30 @@ func upgradeSecondaries(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret 
 	}
 
 	succeeded := 0
+	failed := 0
+	deletePropagationPolicy := metav1.DeletePropagationForeground
+
 	for _, job := range jobs {
 		if job.Status.Succeeded > 0 {
 			succeeded += 1
 		} else if job.Status.Failed > 0 {
-			propagationPolicy := metav1.DeletePropagationBackground
-			if err = ctx.Delete(ctx, job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
+			failed += 1
+
+			if err = ctx.Delete(ctx, job, &client.DeleteOptions{PropagationPolicy: &deletePropagationPolicy}); err != nil {
 				return
 			}
-
-			ret.Requeue = true
 		}
+	}
+
+	if failed > 0 {
+		err = errSecondaryUpgradeJobFailed
+
+		return
 	}
 
 	if succeeded == len(jobs) {
 		propagationPolicy := metav1.DeletePropagationBackground
+
 		if err = ctx.Delete(ctx, sts, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
 			return
 		}
@@ -98,9 +116,7 @@ func upgradeSecondaries(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret 
 			}
 		}
 
-		p.Status.State = v1alpha1.PatroniPostgresStateUpgradePostupgrade
-
-		ret.Requeue = true
+		done = true
 	}
 
 	return

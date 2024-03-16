@@ -38,7 +38,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
@@ -52,23 +51,32 @@ import (
 var (
 	//go:embed upgrade-scripts/primary-upgrade
 	primaryUpgrade string
+
+	errPrimaryUpgradeJobFailed = fmt.Errorf("primary upgrade job failed")
 )
+
+type primaryUpgradeHandler struct {
+}
+
+func (primaryUpgradeHandler) name() v1alpha1.PatroniPostgresState {
+	return v1alpha1.PatroniPostgresStateUpgradePrimary
+}
 
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
 
-func upgradePrimary(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl.Result, err error) {
-	// preprocessJob must exist at this point
-	preprocessJob := &batchv1.Job{}
-	if err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: preupgradeJobname(p)}, preprocessJob); err != nil {
-		return
-	}
-
+func (primaryUpgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (done bool, err error) {
 	job := &batchv1.Job{}
 	jobname := fmt.Sprintf("%s-up", p.Name)
 
 	err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: jobname}, job)
 	if err != nil {
 		if !errors.IsNotFound(err) {
+			return
+		}
+
+		// preprocessJob must exist at this point
+		preprocessJob := &batchv1.Job{}
+		if err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: preupgradeJobname(p)}, preprocessJob); err != nil {
 			return
 		}
 
@@ -162,31 +170,45 @@ func upgradePrimary(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl
 		return
 	}
 
+	// handle success
+	if job.Status.Succeeded > 0 {
+		var dbid string
+		if dbid, err = getDBIDFromJob(ctx, job); err != nil {
+			return
+		}
+
+		if err = configmap.SetDBId(ctx, p, dbid); err != nil {
+			return
+		}
+
+		// delete preprocessJob if still exists
+		preprocessJob := &batchv1.Job{}
+		if err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: preupgradeJobname(p)}, preprocessJob); err == nil {
+			propagationPolicy := metav1.DeletePropagationBackground
+			if err = ctx.Delete(ctx, preprocessJob, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
+				return
+			}
+		} else if !errors.IsNotFound(err) {
+			return
+		}
+
+		p.Status.Version = p.Status.UpgradeVersion
+
+		done = true
+	}
+
+	// cleanup job in case of success/fail
 	if job.Status.Succeeded+job.Status.Failed > 0 {
-		if job.Status.Succeeded > 0 {
-			var dbid string
-			if dbid, err = getDBIDFromJob(ctx, job); err != nil {
-				return
-			}
+		deletePropagationPolicy := metav1.DeletePropagationBackground
 
-			if err = configmap.SetDBId(ctx, p, dbid); err != nil {
-				return
-			}
-
-			p.Status.Version = p.Status.UpgradeVersion
-			p.Status.State = v1alpha1.PatroniPostgresStateUpgradeSecondaries
-		}
-
-		propagationPolicy := metav1.DeletePropagationBackground
-		if err = ctx.Delete(ctx, preprocessJob, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
+		if err = ctx.Delete(ctx, job, &client.DeleteOptions{PropagationPolicy: &deletePropagationPolicy}); err != nil {
 			return
 		}
+	}
 
-		if err = ctx.Delete(ctx, job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
-			return
-		}
-
-		ret.Requeue = true
+	// handle failed case
+	if job.Status.Failed > 0 {
+		err = errPrimaryUpgradeJobFailed
 	}
 
 	return

@@ -26,17 +26,36 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package upgrade
 
 import (
-	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
+	"fmt"
+
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
+	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
 	"github.com/k-web-s/patroni-postgres-operator/private/upgrade/preupgrade"
 )
 
-func checkPreupgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ready bool, ret ctrl.Result, err error) {
+var (
+	errPreupgradeJobFailed = fmt.Errorf("preupgrade job failed")
+)
+
+type preupgradeHandler struct {
+}
+
+func (preupgradeHandler) name() v1alpha1.PatroniPostgresState {
+	return v1alpha1.PatroniPostgresStateUpgradePreupgrade
+}
+
+func (preupgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (done bool, err error) {
+	// Ensure cluster is up & running
+	if _, err = statefulset.ReconcileSts(ctx, p); err != nil {
+		return
+	}
+
+	// Create/handle preupgrade job
 	job := &batchv1.Job{}
 	jobname := preupgradeJobname(p)
 
@@ -46,18 +65,19 @@ func checkPreupgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (read
 			return
 		}
 
-		ret, err = createUpgradeJob(ctx, p, preupgrade.ModeString)
+		err = createUpgradeJob(ctx, p, preupgrade.ModeString)
 
 		return
 	}
 
-	if job.Status.Succeeded+job.Status.Failed > 0 {
-		if job.Status.Succeeded > 0 {
-			ready = true
-		} else {
-			err = ctx.Delete(ctx, job)
-			ret.Requeue = true
+	if job.Status.Succeeded > 0 {
+		done = true
+	} else if job.Status.Failed > 0 {
+		if err = ctx.Delete(ctx, job); err != nil {
+			return
 		}
+
+		err = errPreupgradeJobFailed
 	}
 
 	return

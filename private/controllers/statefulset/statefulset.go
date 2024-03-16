@@ -77,8 +77,7 @@ var (
 
 // +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch;create;update;delete
 
-func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
-	var sts *appsv1.StatefulSet
+func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres) (sts *appsv1.StatefulSet, err error) {
 	var create bool
 
 	sts, err = GetK8SStatefulSet(ctx, p)
@@ -105,7 +104,7 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	podLabels := ctx.CommonLabels()
 	labelsBytes, err := json.Marshal(podLabels)
 	if err != nil {
-		return err
+		return
 	}
 	labelsString := string(labelsBytes)
 
@@ -309,13 +308,22 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 
 	p.Status.Ready = sts.Status.ReadyReplicas
 
+	return
+}
+
+func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
+	sts, err := ReconcileSts(ctx, p)
+	if err != nil {
+		return
+	}
+
 	if int(sts.Status.ReadyReplicas) == len(p.Spec.Nodes) {
 		p.Status.State = v1alpha1.PatroniPostgresStateReady
 	} else {
 		p.Status.State = v1alpha1.PatroniPostgresStateScaling
 	}
 
-	return err
+	return
 }
 
 func GetK8SStatefulSet(ctx context.Context, p *v1alpha1.PatroniPostgres) (sts *appsv1.StatefulSet, err error) {

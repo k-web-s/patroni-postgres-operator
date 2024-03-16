@@ -32,7 +32,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
@@ -40,9 +39,13 @@ import (
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
 )
 
+const (
+	upgradeModeEnvVar = "MODE"
+)
+
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
 
-func createUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode string) (ret ctrl.Result, err error) {
+func createUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode string) (err error) {
 	var activeDeadlineSeconds int64 = 60
 	var completions int32 = 1
 
@@ -85,7 +88,7 @@ func createUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode st
 									Value: "postgres",
 								},
 								{
-									Name:  helperModeEnvVar,
+									Name:  upgradeModeEnvVar,
 									Value: mode,
 								},
 							},

@@ -28,9 +28,9 @@ jobs:
           GOARCH=arm   go build -ldflags -s -o patroni-postgres-operator.arm   .
           GOARCH=arm64 go build -ldflags -s -o patroni-postgres-operator.arm64 .
 
-          GOARCH=amd64 go build -ldflags -s -o helper.amd64 ./cmd/helper/
-          GOARCH=arm   go build -ldflags -s -o helper.arm   ./cmd/helper/
-          GOARCH=arm64 go build -ldflags -s -o helper.arm64 ./cmd/helper/
+          GOARCH=amd64 go build -ldflags -s -o upgrade.amd64 ./cmd/upgrade/
+          GOARCH=arm   go build -ldflags -s -o upgrade.arm   ./cmd/upgrade/
+          GOARCH=arm64 go build -ldflags -s -o upgrade.arm64 ./cmd/upgrade/
 
       - name: Setup qemu
         uses: docker/setup-qemu-action@v2
