@@ -135,8 +135,8 @@ func (r *PatroniPostgresReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		secret.Reconcile,
 		configmap.Reconcile,
 		rbac.Reconcile,
-		statefulset.Reconcile,
 		service.Reconcile,
+		statefulset.Reconcile,
 		networkpolicy.Reconcile,
 		pdb.Reconcile,
 	} {

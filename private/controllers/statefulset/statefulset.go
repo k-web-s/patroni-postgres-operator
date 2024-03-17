@@ -42,13 +42,12 @@ import (
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/pvc"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/rbac"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/secret"
+	"github.com/k-web-s/patroni-postgres-operator/private/controllers/service"
 )
 
 const (
 	Image             = "ghcr.io/rkojedzinszky/postgres-patroni:20230910"
 	postgresComponent = "postgres"
-	PostgresPort      = 5432
-	PostgresPortName  = "postgres"
 	patroniPort       = 8008
 	patroniPortName   = "patroni"
 
@@ -149,7 +148,7 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres) (sts *appsv1
 		PodManagementPolicy: appsv1.ParallelPodManagement,
 		MinReadySeconds:     60,
 		Replicas:            &replicas,
-		ServiceName:         p.Name,
+		ServiceName:         service.HeadlessServiceName(p),
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels:      podLabels,
@@ -253,8 +252,8 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres) (sts *appsv1
 						},
 						Ports: []corev1.ContainerPort{
 							{
-								Name:          PostgresPortName,
-								ContainerPort: PostgresPort,
+								Name:          service.PostgresPortName,
+								ContainerPort: service.PostgresPort,
 							},
 							{
 								Name:          patroniPortName,

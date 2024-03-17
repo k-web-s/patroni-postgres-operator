@@ -36,12 +36,14 @@ import (
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 	"github.com/k-web-s/patroni-postgres-operator/private/context"
-	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
 )
 
 const (
 	PatroniPodRoleKey     = "role"
 	PatroniPodRole_Master = "master"
+
+	PostgresPort     = 5432
+	PostgresPortName = "postgres"
 )
 
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update
@@ -77,9 +79,9 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 
 	service.Spec.Ports = []corev1.ServicePort{
 		{
-			Name:       statefulset.PostgresPortName,
-			Port:       statefulset.PostgresPort,
-			TargetPort: intstr.FromInt(statefulset.PostgresPort),
+			Name:       PostgresPortName,
+			Port:       PostgresPort,
+			TargetPort: intstr.FromInt(PostgresPort),
 		},
 	}
 
@@ -94,7 +96,7 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	}
 
 	// headless service
-	serviceName = fmt.Sprintf("%s-headless", p.Name)
+	serviceName = HeadlessServiceName(p)
 	create = false
 
 	err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: serviceName}, service)
@@ -127,4 +129,8 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	}
 
 	return
+}
+
+func HeadlessServiceName(p *v1alpha1.PatroniPostgres) string {
+	return fmt.Sprintf("%s-headless", p.Name)
 }
