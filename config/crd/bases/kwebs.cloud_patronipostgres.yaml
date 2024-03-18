@@ -2191,6 +2191,20 @@ spec:
                       description: StorageClassName references a storage class to
                         allocate volume from
                       type: string
+                    tags:
+                      description: Tags for Node
+                      properties:
+                        nofailover:
+                          description: NoFailover controls whether this node is allowed
+                            to participate in the leader race and become a leader.
+                            Defaults to false, meaning this node _can_ participate
+                            in leader races.
+                          type: boolean
+                        nosync:
+                          description: NoSync If set to true the node will never be
+                            selected as a synchronous replica.
+                          type: boolean
+                      type: object
                   required:
                   - storageClassName
                   type: object

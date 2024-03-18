@@ -31,6 +31,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// NodeTags holds a subset of Patroni tags
+// https://patroni.readthedocs.io/en/latest/yaml_configuration.html#tags
+type NodeTags struct {
+	// NoSync If set to true the node will never be selected as a synchronous replica.
+	NoSync bool `json:"nosync,omitempty"`
+
+	// NoFailover controls whether this node is allowed to participate in the leader
+	// race and become a leader. Defaults to false, meaning this node _can_
+	// participate in leader races.
+	NoFailover bool `json:"nofailover,omitempty"`
+}
+
 // Node represents a PatroniPostgres node's configuration
 type Node struct {
 	// StorageClassName references a storage class to allocate volume from
@@ -38,6 +50,9 @@ type Node struct {
 
 	// AccessMode allows for overriding implicit ReadWriteOnce accessmode
 	AccessMode corev1.PersistentVolumeAccessMode `json:"accessMode,omitempty"`
+
+	// Tags for Node
+	Tags NodeTags `json:"tags,omitempty"`
 }
 
 type VolumeStatus struct {

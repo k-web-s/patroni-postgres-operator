@@ -28,6 +28,7 @@ package statefulset
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -281,6 +282,8 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres) (sts *appsv1
 		},
 	}
 
+	sts.Spec.Template.Spec.Containers[0].Env = append(sts.Spec.Template.Spec.Containers[0].Env, genNodeTagsEnvs(p)...)
+
 	sts.Spec.Template.Spec.Containers = append(sts.Spec.Template.Spec.Containers, p.Spec.ExtraContainers...)
 
 	if create {
@@ -312,5 +315,29 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 func GetK8SStatefulSet(ctx context.Context, p *v1alpha1.PatroniPostgres) (sts *appsv1.StatefulSet, err error) {
 	sts = &appsv1.StatefulSet{}
 	err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: p.Name}, sts)
+	return
+}
+
+func genNodeTagsEnvs(p *v1alpha1.PatroniPostgres) (envs []corev1.EnvVar) {
+	podPrefix := strings.ReplaceAll(p.Name, "-", "_")
+
+	for idx := range p.Spec.Nodes {
+		node := &p.Spec.Nodes[idx]
+
+		if node.Tags.NoSync {
+			envs = append(envs, corev1.EnvVar{
+				Name:  fmt.Sprintf("PATRONI_NODE_%s_%d_TAG_%s", podPrefix, idx, "nosync"),
+				Value: "true",
+			})
+		}
+
+		if node.Tags.NoFailover {
+			envs = append(envs, corev1.EnvVar{
+				Name:  fmt.Sprintf("PATRONI_NODE_%s_%d_TAG_%s", podPrefix, idx, "nofailover"),
+				Value: "true",
+			})
+		}
+	}
+
 	return
 }
