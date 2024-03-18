@@ -46,7 +46,7 @@ import (
 )
 
 const (
-	Image             = "ghcr.io/rkojedzinszky/postgres-patroni:20230910"
+	Image             = "ghcr.io/rkojedzinszky/postgres-patroni:20240318"
 	postgresComponent = "postgres"
 	patroniPort       = 8008
 	patroniPortName   = "patroni"
@@ -228,22 +228,6 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres) (sts *appsv1
 										Key: secret.ReplicationUserPasswordKey,
 									},
 								},
-							},
-							{
-								Name:  "PATRONI_POSTGRESQL_DATA_DIR",
-								Value: "/var/lib/postgresql/data",
-							},
-							{
-								Name:  "PATRONI_POSTGRESQL_PGPASS",
-								Value: "/tmp/pgpass",
-							},
-							{
-								Name:  "PATRONI_POSTGRESQL_LISTEN",
-								Value: "0.0.0.0:5432",
-							},
-							{
-								Name:  "PATRONI_RESTAPI_LISTEN",
-								Value: "0.0.0.0:8008",
 							},
 							{
 								Name:  "PATRONI_INITIAL_SYNCHRONOUS_MODE",
