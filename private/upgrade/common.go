@@ -37,6 +37,7 @@ import (
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/secret"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
+	"github.com/k-web-s/patroni-postgres-operator/private/security"
 )
 
 const (
@@ -98,11 +99,11 @@ func createUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode st
 									v1.ResourceMemory: resource.MustParse("64Mi"),
 								},
 							},
-							SecurityContext: statefulset.SecurityContext,
+							SecurityContext: security.ContainerSecurityContext,
 						},
 					},
 					RestartPolicy:   v1.RestartPolicyOnFailure,
-					SecurityContext: statefulset.PodSecurityContext,
+					SecurityContext: security.GenericPodSecurityContext,
 				},
 			},
 		},

@@ -41,6 +41,7 @@ import (
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/pvc"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
+	"github.com/k-web-s/patroni-postgres-operator/private/security"
 )
 
 var (
@@ -104,7 +105,7 @@ func upgradeSecondariesEnsurestreamer(ctx pcontext.Context, p *v1alpha1.PatroniP
 								Resources: v1.ResourceRequirements{
 									Requests: p.Spec.Resources.Requests,
 								},
-								SecurityContext: statefulset.SecurityContext,
+								SecurityContext: security.ContainerSecurityContext,
 							},
 						},
 						Volumes: []v1.Volume{
@@ -117,7 +118,7 @@ func upgradeSecondariesEnsurestreamer(ctx pcontext.Context, p *v1alpha1.PatroniP
 								},
 							},
 						},
-						SecurityContext: statefulset.PodSecurityContext,
+						SecurityContext: security.DatabasePodSecurityContext,
 					},
 				},
 			},

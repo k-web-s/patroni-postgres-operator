@@ -45,6 +45,7 @@ import (
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/configmap"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/pvc"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
+	"github.com/k-web-s/patroni-postgres-operator/private/security"
 	"github.com/k-web-s/patroni-postgres-operator/private/upgrade/preupgrade"
 )
 
@@ -141,7 +142,7 @@ func (primaryUpgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPos
 								Resources: v1.ResourceRequirements{
 									Requests: p.Spec.Resources.Requests,
 								},
-								SecurityContext: statefulset.SecurityContext,
+								SecurityContext: security.ContainerSecurityContext,
 							},
 						},
 						Volumes: []v1.Volume{
@@ -155,7 +156,7 @@ func (primaryUpgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPos
 							},
 						},
 						RestartPolicy:   v1.RestartPolicyOnFailure,
-						SecurityContext: statefulset.PodSecurityContext,
+						SecurityContext: security.DatabasePodSecurityContext,
 					},
 				},
 			},

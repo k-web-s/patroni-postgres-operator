@@ -36,7 +36,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 	"github.com/k-web-s/patroni-postgres-operator/private/context"
@@ -44,6 +43,7 @@ import (
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/rbac"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/secret"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/service"
+	"github.com/k-web-s/patroni-postgres-operator/private/security"
 )
 
 const (
@@ -56,23 +56,6 @@ const (
 	patroniReplicationUsername = "standby"
 
 	DataVolumeMountPath = "/var/lib/postgresql"
-)
-
-var (
-	user                = int64(15432)
-	fsGroupChangePolicy = corev1.FSGroupChangeOnRootMismatch
-
-	PodSecurityContext = &corev1.PodSecurityContext{
-		RunAsUser:           &user,
-		RunAsGroup:          &user,
-		FSGroup:             &user,
-		RunAsNonRoot:        pointer.Bool(true),
-		FSGroupChangePolicy: &fsGroupChangePolicy,
-	}
-
-	SecurityContext = &corev1.SecurityContext{
-		AllowPrivilegeEscalation: pointer.Bool(false),
-	}
 )
 
 // +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch;create;update;delete
@@ -271,10 +254,10 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres) (sts *appsv1
 								MountPath: DataVolumeMountPath,
 							},
 						},
-						SecurityContext: SecurityContext,
+						SecurityContext: security.ContainerSecurityContext,
 					},
 				},
-				SecurityContext:  PodSecurityContext,
+				SecurityContext:  security.DatabasePodSecurityContext,
 				ImagePullSecrets: p.Spec.ImagePullSecrets,
 				NodeSelector:     p.Spec.NodeSelector,
 				Tolerations:      p.Spec.Tolerations,

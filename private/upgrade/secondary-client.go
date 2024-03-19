@@ -40,6 +40,7 @@ import (
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/pvc"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
+	"github.com/k-web-s/patroni-postgres-operator/private/security"
 )
 
 var (
@@ -95,7 +96,7 @@ func upgradeSecondariesEnsureseclients(ctx pcontext.Context, p *v1alpha1.Patroni
 									Resources: v1.ResourceRequirements{
 										Requests: p.Spec.Resources.Requests,
 									},
-									SecurityContext: statefulset.SecurityContext,
+									SecurityContext: security.ContainerSecurityContext,
 								},
 							},
 							Volumes: []v1.Volume{
@@ -109,7 +110,7 @@ func upgradeSecondariesEnsureseclients(ctx pcontext.Context, p *v1alpha1.Patroni
 								},
 							},
 							RestartPolicy:   v1.RestartPolicyOnFailure,
-							SecurityContext: statefulset.PodSecurityContext,
+							SecurityContext: security.DatabasePodSecurityContext,
 						},
 					},
 				},
