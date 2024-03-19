@@ -26,7 +26,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package preupgrade
 
 const (
-	ModeString = "preupgrade"
+	ModeString            = "preupgrade"
+	ActiveDeadlineSeconds = 60
 )
 
 // helper container will return this struct

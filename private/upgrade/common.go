@@ -46,8 +46,7 @@ const (
 
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
 
-func createUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode string) (err error) {
-	var activeDeadlineSeconds int64 = 60
+func createUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode string, activeDeadlineSeconds int64) (err error) {
 	var completions int32 = 1
 
 	job := &batchv1.Job{

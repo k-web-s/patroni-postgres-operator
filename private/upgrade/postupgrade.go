@@ -71,7 +71,7 @@ func (postupgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgr
 			return
 		}
 
-		err = createUpgradeJob(ctx, p, postupgrade.ModeString)
+		err = createUpgradeJob(ctx, p, postupgrade.ModeString, postupgrade.ActiveDeadlineSeconds)
 
 		return
 	}

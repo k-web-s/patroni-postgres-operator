@@ -26,5 +26,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package postupgrade
 
 const (
-	ModeString = "postupgrade"
+	ModeString            = "postupgrade"
+	ActiveDeadlineSeconds = 3600
 )

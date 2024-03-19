@@ -65,7 +65,7 @@ func (preupgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgre
 			return
 		}
 
-		err = createUpgradeJob(ctx, p, preupgrade.ModeString)
+		err = createUpgradeJob(ctx, p, preupgrade.ModeString, preupgrade.ActiveDeadlineSeconds)
 
 		return
 	}
