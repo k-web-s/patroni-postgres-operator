@@ -53,7 +53,12 @@ func (postupgradeHandler) name() v1alpha1.PatroniPostgresState {
 
 func (postupgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (done bool, err error) {
 	// Ensure cluster is up & running
-	if _, err = statefulset.ReconcileSts(ctx, p); err != nil {
+	sts, err := statefulset.ReconcileSts(ctx, p)
+	if err != nil {
+		return
+	}
+
+	if int(sts.Status.ReadyReplicas) != len(p.Spec.Nodes) {
 		return
 	}
 
