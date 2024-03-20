@@ -4,6 +4,7 @@ kind: Namespace
 metadata:
   labels:
     control-plane: kwebs-patroni-postgres-operator
+    pod-security.kubernetes.io/enforce: restricted
   name: kwebs-patroni-postgres-operator
 ---
 apiVersion: apps/v1
