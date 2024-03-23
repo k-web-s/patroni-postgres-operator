@@ -57,6 +57,9 @@ func createUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode st
 			ActiveDeadlineSeconds: &activeDeadlineSeconds,
 			Completions:           &completions,
 			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: ctx.CommonLabels(),
+				},
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{

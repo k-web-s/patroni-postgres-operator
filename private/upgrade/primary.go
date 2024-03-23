@@ -108,6 +108,9 @@ func (primaryUpgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPos
 				ActiveDeadlineSeconds: &activeDeadlineSeconds,
 				Completions:           &completions,
 				Template: v1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: ctx.CommonLabels(),
+					},
 					Spec: v1.PodSpec{
 						Containers: []v1.Container{
 							{
