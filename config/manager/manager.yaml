@@ -33,6 +33,11 @@ spec:
             - --leader-elect
           image: ghcr.io/k-web-s/patroni-postgres-operator
           name: manager
+          env:
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  resource: requests.memory
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
