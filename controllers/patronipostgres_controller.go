@@ -37,7 +37,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -150,23 +149,8 @@ func (r *PatroniPostgresReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *PatroniPostgresReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// dont watch for creates or updates with no generation changes
-	watchPredicates := predicate.Not(
-		predicate.Or(
-			predicate.Funcs{
-				DeleteFunc: func(de event.DeleteEvent) bool {
-					return false
-				},
-				UpdateFunc: func(ue event.UpdateEvent) bool {
-					return false
-				},
-				GenericFunc: func(ge event.GenericEvent) bool {
-					return false
-				},
-			},
-			predicate.GenerationChangedPredicate{},
-		),
-	)
+	// watch only for status upgrades (i.e. no generation changes)
+	watchPredicates := predicate.Not(predicate.GenerationChangedPredicate{})
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.PatroniPostgres{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
