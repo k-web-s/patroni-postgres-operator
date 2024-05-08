@@ -47,7 +47,7 @@ import (
 )
 
 const (
-	Image             = "ghcr.io/rkojedzinszky/postgres-patroni:20240318"
+	Image             = "ghcr.io/rkojedzinszky/postgres-patroni:20240505"
 	postgresComponent = "postgres"
 	patroniPort       = 8008
 	patroniPortName   = "patroni"
