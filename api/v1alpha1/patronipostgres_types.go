@@ -27,6 +27,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -126,6 +127,12 @@ type PatroniPostgresSpec struct {
 	// ExtraContainers lists extra containers added to pods
 	// +optional
 	ExtraContainers []corev1.Container `json:"extraContainers,omitempty"`
+
+	// AccessControl controls access to PostgreSQL service.
+	// If undefined, allows access from anywhere
+	// More info: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#networkpolicyingressrule-v1-networking-k8s-io
+	// +optional
+	AccessControl []networking.NetworkPolicyPeer `json:"accessControl,omitempty"`
 }
 
 // PatroniPostgresState represents overall cluster state

@@ -31,6 +31,7 @@ package v1alpha1
 
 import (
 	"k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -168,6 +169,13 @@ func (in *PatroniPostgresSpec) DeepCopyInto(out *PatroniPostgresSpec) {
 	if in.ExtraContainers != nil {
 		in, out := &in.ExtraContainers, &out.ExtraContainers
 		*out = make([]v1.Container, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.AccessControl != nil {
+		in, out := &in.AccessControl, &out.AccessControl
+		*out = make([]networkingv1.NetworkPolicyPeer, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

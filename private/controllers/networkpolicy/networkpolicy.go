@@ -81,7 +81,8 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 				},
 			},
 			{
-				// Open postgres port
+				// PostgreSQL service
+				From: p.Spec.AccessControl,
 				Ports: []networking.NetworkPolicyPort{
 					{
 						Port: &port,
