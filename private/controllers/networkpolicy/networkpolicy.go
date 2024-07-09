@@ -91,6 +91,7 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 			},
 		},
 	}
+	policy.Spec.Ingress = append(policy.Spec.Ingress, p.Spec.AdditionalNetworkPolicyIngress...)
 
 	if create {
 		err = ctx.Create(ctx, policy)

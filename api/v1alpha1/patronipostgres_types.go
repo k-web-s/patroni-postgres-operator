@@ -133,6 +133,11 @@ type PatroniPostgresSpec struct {
 	// More info: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#networkpolicyingressrule-v1-networking-k8s-io
 	// +optional
 	AccessControl []networking.NetworkPolicyPeer `json:"accessControl,omitempty"`
+
+	// AdditionalNetworkPolicyIngress lists additional ingress rules to append to created
+	// NetworkPolicy object. Useful for opening ports for ExtraContainers.
+	// +optional
+	AdditionalNetworkPolicyIngress []networking.NetworkPolicyIngressRule `json:"additionalNetworkPolicyIngress,omitempty"`
 }
 
 // PatroniPostgresState represents overall cluster state
