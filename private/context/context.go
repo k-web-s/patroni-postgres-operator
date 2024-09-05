@@ -43,16 +43,23 @@ const (
 	instanceLabel  = "app.kubernetes.io/instance"
 	managedByLabel = "app.kubernetes.io/managed-by"
 	managedByValue = "kwebs-patroni-postgres-operator"
+	componentLabel = "component"
 
 	clusterNameLabel = "cluster-name"
+
+	// Component names
+	ComponentPostgres = "postgres"
 )
 
 type Context interface {
 	gocontext.Context
 	client.Client
 
-	// CommonLabels returns common labels to use on objects
+	// CommonLabels returns common cluster labels to use on objects
 	CommonLabels() map[string]string
+
+	// PodLabels returns specific labels to use on specific PODs
+	PodLabels(component string) map[string]string
 
 	// ListOption returns list options to use to filter for own objects
 	ListOption() (client.ListOption, error)
@@ -87,6 +94,14 @@ func (c *context) CommonLabels() (ret map[string]string) {
 		managedByLabel:   managedByValue,
 		clusterNameLabel: c.pp.Name,
 	}
+
+	return
+}
+
+func (c *context) PodLabels(component string) (ret map[string]string) {
+	ret = c.CommonLabels()
+
+	ret[componentLabel] = component
 
 	return
 }

@@ -74,7 +74,7 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	}
 
 	service.Spec.Type = p.Spec.ServiceType
-	service.Spec.Selector = ctx.CommonLabels()
+	service.Spec.Selector = ctx.PodLabels(context.ComponentPostgres)
 	service.Spec.Selector[PatroniPodRoleKey] = PatroniPodRole_Master
 
 	service.Spec.Ports = []corev1.ServicePort{
@@ -119,7 +119,7 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	}
 
 	service.Spec.ClusterIP = corev1.ClusterIPNone
-	service.Spec.Selector = ctx.CommonLabels()
+	service.Spec.Selector = ctx.PodLabels(context.ComponentPostgres)
 	service.Spec.Selector[PatroniPodRoleKey] = PatroniPodRole_Master
 
 	if create {

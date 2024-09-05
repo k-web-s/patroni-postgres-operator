@@ -84,8 +84,9 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres) (sts *appsv1
 
 	enableServiceLinks := false
 	replicas := int32(len(p.Spec.Nodes))
-	podLabels := ctx.CommonLabels()
-	labelsBytes, err := json.Marshal(podLabels)
+	clusterLabels := ctx.CommonLabels()
+	podLabels := ctx.PodLabels(context.ComponentPostgres)
+	labelsBytes, err := json.Marshal(clusterLabels)
 	if err != nil {
 		return
 	}
@@ -115,7 +116,7 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres) (sts *appsv1
 
 	sts.Spec = appsv1.StatefulSetSpec{
 		Selector: &metav1.LabelSelector{
-			MatchLabels: podLabels,
+			MatchLabels: clusterLabels,
 		},
 		VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 			{
