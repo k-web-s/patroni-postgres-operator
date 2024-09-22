@@ -49,6 +49,10 @@ const (
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update
 
 func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
+	return ReconcileService(ctx, p)
+}
+
+func ReconcileService(ctx context.Context, p *v1alpha1.PatroniPostgres, patches ...Patch) (err error) {
 	serviceName := p.Name
 	service := &corev1.Service{}
 	var create bool
@@ -83,6 +87,10 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 			Port:       PostgresPort,
 			TargetPort: intstr.FromInt(PostgresPort),
 		},
+	}
+
+	for _, patch := range patches {
+		patch.Patch(service)
 	}
 
 	if create {

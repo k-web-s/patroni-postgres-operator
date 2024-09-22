@@ -30,7 +30,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -46,7 +45,6 @@ import (
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/pvc"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
 	"github.com/k-web-s/patroni-postgres-operator/private/security"
-	"github.com/k-web-s/patroni-postgres-operator/private/upgrade/preupgrade"
 )
 
 var (
@@ -75,14 +73,8 @@ func (primaryUpgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPos
 			return
 		}
 
-		// preprocessJob must exist at this point
-		preprocessJob := &batchv1.Job{}
-		if err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: preupgradeJobname(p)}, preprocessJob); err != nil {
-			return
-		}
-
 		var initdbArgs string
-		if initdbArgs, err = getInitdbArgsFromJob(ctx, preprocessJob); err != nil {
+		if initdbArgs, err = configmap.GetPrimaryInitdbArgs(ctx, p); err != nil {
 			return
 		}
 
@@ -179,27 +171,20 @@ func (primaryUpgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPos
 
 	// handle success
 	if job.Status.Succeeded > 0 {
-		var dbid string
-		if dbid, err = getDBIDFromJob(ctx, job); err != nil {
+		var result upgradeJobResult
+		if result, err = getResultFromPrimaryUpgradeJob(ctx, job); err != nil {
 			return
 		}
 
-		if err = configmap.SetDBId(ctx, p, dbid); err != nil {
-			return
-		}
-
-		// delete preprocessJob if still exists
-		preprocessJob := &batchv1.Job{}
-		if err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: preupgradeJobname(p)}, preprocessJob); err == nil {
-			propagationPolicy := metav1.DeletePropagationBackground
-			if err = ctx.Delete(ctx, preprocessJob, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
+		if result.OldLatestCheckpointLocation != "" {
+			if err = configmap.SetLatestCheckpointLocation(ctx, p, result.OldLatestCheckpointLocation); err != nil {
 				return
 			}
-		} else if !errors.IsNotFound(err) {
-			return
 		}
 
-		p.Status.Version = p.Status.UpgradeVersion
+		if err = configmap.SetDBId(ctx, p, result.NewDatabaseSystemIdentifier); err != nil {
+			return
+		}
 
 		done = true
 	}
@@ -221,10 +206,15 @@ func (primaryUpgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPos
 	return
 }
 
+type upgradeJobResult struct {
+	OldLatestCheckpointLocation string `json:"oldLatestCheckpointLocation"`
+	NewDatabaseSystemIdentifier string `json:"newDatabaseSystemIdentifier"`
+}
+
 // +kubebuilder:rbac:groups="",resources=pods,verbs=list
 // +kubebuilder:rbac:groups="",resources=pods/log,verbs=get
 
-func getDBIDFromJob(ctx pcontext.Context, job *batchv1.Job) (dbid string, err error) {
+func getResultFromPrimaryUpgradeJob(ctx pcontext.Context, job *batchv1.Job) (result upgradeJobResult, err error) {
 	var ls labels.Selector
 	if ls, err = metav1.LabelSelectorAsSelector(job.Spec.Selector); err != nil {
 		return
@@ -258,62 +248,7 @@ func getDBIDFromJob(ctx pcontext.Context, job *batchv1.Job) (dbid string, err er
 		return
 	}
 
-	dbid = strings.TrimSpace(string(buf[:n]))
-
-	return
-}
-
-func getInitdbArgsFromJob(ctx pcontext.Context, job *batchv1.Job) (args string, err error) {
-	var ls labels.Selector
-	if ls, err = metav1.LabelSelectorAsSelector(job.Spec.Selector); err != nil {
-		return
-	}
-
-	var pods v1.PodList
-	if err = ctx.List(ctx, &pods, &client.ListOptions{LabelSelector: ls}); err != nil {
-		return
-	}
-
-	if len(pods.Items) == 0 {
-		err = fmt.Errorf("no pod found for preprocess job")
-		return
-	}
-
-	pod := &pods.Items[0]
-
-	var tailLines int64 = 1
-	request := ctx.Clientset().CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{
-		TailLines: &tailLines,
-	})
-	var logs io.ReadCloser
-	if logs, err = request.Stream(ctx); err != nil {
-		return
-	}
-	defer logs.Close()
-	buf := make([]byte, 2048)
-	n, _ := logs.Read(buf)
-	if n == 0 {
-		err = fmt.Errorf("short read from pod logs")
-		return
-	}
-
-	var cfg preupgrade.Config
-	if err = json.Unmarshal(buf[:n], &cfg); err != nil {
-		return
-	}
-
-	var argsa []string
-	if cfg.Locale != "" {
-		argsa = append(argsa, fmt.Sprintf("--locale=%s", cfg.Locale))
-	}
-	if cfg.Encoding != "" {
-		argsa = append(argsa, fmt.Sprintf("--encoding=%s", cfg.Encoding))
-	}
-	if cfg.DataChecksums {
-		argsa = append(argsa, "--data-checksums")
-	}
-
-	args = strings.Join(argsa, " ")
+	err = json.Unmarshal(buf[:n], &result)
 
 	return
 }

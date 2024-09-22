@@ -23,50 +23,28 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package main
+package statefulset
 
 import (
-	"context"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
+	"fmt"
 
-	"github.com/namsral/flag"
-
-	upgradecommon "github.com/k-web-s/patroni-postgres-operator/private/upgrade/common"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
-var modes = map[string]func(context.Context) error{
-	upgradecommon.UpgradeMODEPre:     preupgradefn,
-	upgradecommon.UpgradeMODEPreSync: preupgradesyncfn,
-	upgradecommon.UpgradeMODEPost:    postupgradefn,
+type Patch interface {
+	Patch(*appsv1.StatefulSet)
 }
 
-func main() {
-	var err error
+type withPostgresqlPort int
 
-	flag.Parse()
+func (p withPostgresqlPort) Patch(sts *appsv1.StatefulSet) {
+	sts.Spec.Template.Spec.Containers[0].Env = append(sts.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+		Name:  "POSTGRESQL_PORT",
+		Value: fmt.Sprintf("%d", p),
+	})
+}
 
-	opfunc := modes[*mode]
-	if opfunc == nil {
-		log.Fatal("Invalid mode selected")
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go func() {
-		defer cancel()
-
-		sigchan := make(chan os.Signal, 1)
-		signal.Notify(sigchan, syscall.SIGTERM, syscall.SIGINT)
-		<-sigchan
-
-		log.Print("Exiting...")
-	}()
-
-	if err = opfunc(ctx); err != nil {
-		log.Fatal(err)
-	}
+func WithPostgresqlPort(port int) Patch {
+	return withPostgresqlPort(port)
 }

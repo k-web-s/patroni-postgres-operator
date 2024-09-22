@@ -27,46 +27,48 @@ package main
 
 import (
 	"context"
-	"log"
+	"encoding/json"
+	"io"
 	"os"
-	"os/signal"
-	"syscall"
-
-	"github.com/namsral/flag"
 
 	upgradecommon "github.com/k-web-s/patroni-postgres-operator/private/upgrade/common"
 )
 
-var modes = map[string]func(context.Context) error{
-	upgradecommon.UpgradeMODEPre:     preupgradefn,
-	upgradecommon.UpgradeMODEPreSync: preupgradesyncfn,
-	upgradecommon.UpgradeMODEPost:    postupgradefn,
-}
+func preupgradefn(ctx context.Context) (err error) {
+	dbconn, err := connectdb(ctx)
+	if err != nil {
+		return
+	}
+	defer dbconn.Close(ctx)
 
-func main() {
-	var err error
+	var cfg upgradecommon.Config
 
-	flag.Parse()
-
-	opfunc := modes[*mode]
-	if opfunc == nil {
-		log.Fatal("Invalid mode selected")
+	if err = dbconn.QueryRow(ctx, "SHOW lc_collate").Scan(&cfg.Locale); err != nil {
+		return
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go func() {
-		defer cancel()
-
-		sigchan := make(chan os.Signal, 1)
-		signal.Notify(sigchan, syscall.SIGTERM, syscall.SIGINT)
-		<-sigchan
-
-		log.Print("Exiting...")
-	}()
-
-	if err = opfunc(ctx); err != nil {
-		log.Fatal(err)
+	if err = dbconn.QueryRow(ctx, "SHOW server_encoding").Scan(&cfg.Encoding); err != nil {
+		return
 	}
+
+	if err = dbconn.QueryRow(ctx, "SELECT current_setting('data_checksums')::bool").Scan(&cfg.DataChecksums); err != nil {
+		return
+	}
+
+	var out []byte
+	if out, err = json.Marshal(&cfg); err != nil {
+		return
+	}
+
+	var n int
+	n, err = os.Stdout.Write(out)
+	if err != nil {
+		return
+	}
+
+	if n < len(out) {
+		err = io.ErrShortWrite
+	}
+
+	return
 }

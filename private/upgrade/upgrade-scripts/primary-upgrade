@@ -10,62 +10,58 @@ PGDATA=/var/lib/postgresql/data
 
 PGDATAOLD=${PGDATA}
 PGDATANEW=${PGDATA}.new
+PG_CONTROL_OLD=${PGDATAOLD}/global/pg_control.old
 PGBINOLD=/usr/lib/postgresql/${OLD}/bin
 PGBINNEW=/usr/lib/postgresql/${NEW}/bin
 export PGDATAOLD PGDATANEW PGBINOLD PGBINNEW
 
 PRESERVE_FILES="postgresql.conf postgresql.base.conf postgresql.auto.conf pg_hba.conf pg_ident.conf"
 
-if [ -d "${PGDATA}" ]; then
+DB_OLD_CHECKPOINT=
+
+if ! test -f "${PG_CONTROL_OLD}"; then
     detected_ver=$(cat $PGDATA/PG_VERSION 2>/dev/null)
-    if [ "$detected_ver" != "$NEW" ]; then
-        if [ "$detected_ver" != "$OLD" ]; then
-            echo "[-] Database version mismatch: $OLD (expected) != $detected_ver (detected)"
-            exit 1
-        fi
-
-        old_id=$(${PGBINOLD}/pg_controldata ${PGDATA} | sed -n -r -e 's/^Database system identifier:[[:space:]]*//p')
-        if [ "$old_id" != "$DB_SYSTEM_ID" ]; then
-            echo "Database system identifier mismatch: $DB_SYSTEM_ID (expected) != $old_id (detected)"
-            exit 2
-        fi
-
-        rm -rf "${PGDATANEW}"
-
-        ${PGBINNEW}/initdb -D "${PGDATANEW}" $INITDB_ARGS
-
-        if ! ${PGBINNEW}/pg_upgrade --link; then
-            echo "[-] Failed upgrading"
-            exit 3
-        fi
-
-        for f in ${PRESERVE_FILES}; do
-            if [ -f "${PGDATAOLD}/${f}" ]; then
-                cp "${PGDATAOLD}/${f}" "${PGDATANEW}/${f}"
-            fi
-        done
-
-        echo "[+] Upgrade successful"
-        rm -f ./delete_old_cluster.sh
-        rm -rf "${PGDATA}"
-    fi
-fi
-
-if [ -d "${PGDATANEW}" ]; then
-    if [ -d "${PGDATA}" ]; then
-        echo "[-] Upgrade incosistency, PGDATA and PGDATANEW both exists"
-        exit 4
+    if [ "$detected_ver" != "$OLD" ]; then
+        echo "[-] Database version mismatch: $OLD (expected) != $detected_ver (detected)"
+        exit 1
     fi
 
-    mv "${PGDATANEW}" "${PGDATA}"
+    old_id=$(${PGBINOLD}/pg_controldata ${PGDATA} | sed -n -r -e 's/^Database system identifier:[[:space:]]*//p')
+    if [ "$old_id" != "$DB_SYSTEM_ID" ]; then
+        echo "Database system identifier mismatch: $DB_SYSTEM_ID (expected) != $old_id (detected)"
+        exit 2
+    fi
+
+    DB_OLD_CHECKPOINT=$($PGBINOLD/pg_controldata $PGDATA | sed -n -r -e 's/^Latest checkpoint location:[[:space:]]*//p')
+
+    rm -rf "${PGDATANEW}"
+
+    ${PGBINNEW}/initdb -D "${PGDATANEW}" $INITDB_ARGS
+
+    if ! ${PGBINNEW}/pg_upgrade --link; then
+        echo "[-] Failed upgrading"
+        exit 3
+    fi
+
+    if [ "$(cat $PGDATANEW/PG_VERSION 2>/dev/null)" != "$NEW" ]; then
+        echo "[-] Upgrade failed, new DB has wrong PG_VERSION"
+        exit 5
+    fi
+
+    for f in ${PRESERVE_FILES}; do
+        if [ -f "${PGDATAOLD}/${f}" ]; then
+            cp "${PGDATAOLD}/${f}" "${PGDATANEW}/${f}"
+        fi
+    done
+
+    echo "[+] Upgrade successful"
+    rm -f delete_old_cluster.sh analyze_new_cluster.sh
+
+    sync
 fi
 
-if [ "$(cat $PGDATA/PG_VERSION 2>/dev/null)" != "$NEW" ]; then
-    echo "[-] Upgrade failed, new DB has wrong PG_VERSION"
-    exit 5
-fi
+DB_NEW_SYSID=$($PGBINNEW/pg_controldata $PGDATANEW | sed -n -r -e 's/^Database system identifier:[[:space:]]*//p')
 
-echo "Upgraded database has new Database system identifier:"
 echo ""
 
-${PGBINNEW}/pg_controldata ${PGDATA} | sed -n -r -e 's/^Database system identifier:[[:space:]]*/ /p'
+echo -n "{\"oldLatestCheckpointLocation\":\"$DB_OLD_CHECKPOINT\",\"newDatabaseSystemIdentifier\":\"$DB_NEW_SYSID\"}"

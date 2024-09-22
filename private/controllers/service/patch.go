@@ -23,16 +23,24 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package preupgrade
+package service
 
-const (
-	ModeString            = "preupgrade"
-	ActiveDeadlineSeconds = 60
+import (
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// helper container will return this struct
-type Config struct {
-	Locale        string
-	Encoding      string
-	DataChecksums bool
+type Patch interface {
+	Patch(*corev1.Service)
+}
+
+type withPostgresqlPort int
+
+func (p withPostgresqlPort) Patch(s *corev1.Service) {
+	s.Spec.Ports[0].Port = int32(p)
+	s.Spec.Ports[0].TargetPort = intstr.FromInt(int(p))
+}
+
+func WithPostgresqlPort(port int) Patch {
+	return withPostgresqlPort(port)
 }

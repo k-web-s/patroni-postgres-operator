@@ -29,39 +29,46 @@ import (
 	"fmt"
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
-
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/service"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
 	upgradecommon "github.com/k-web-s/patroni-postgres-operator/private/upgrade/common"
 )
 
-var (
-	errPostupgradeJobFailed = fmt.Errorf("preupgrade job failed")
+const (
+	postgresqlMaintenancePort = 55432
 )
 
-type postupgradeHandler struct {
+var (
+	errPreupgradeSyncJobFailed = fmt.Errorf("preupgrade-sync job failed")
+)
+
+type preupgradeSyncHandler struct {
 }
 
-func (postupgradeHandler) name() v1alpha1.PatroniPostgresState {
-	return v1alpha1.PatroniPostgresStateUpgradePostupgrade
+func (preupgradeSyncHandler) name() v1alpha1.PatroniPostgresState {
+	return v1alpha1.PatroniPostgresStateUpgradePreupgradeSync
 }
 
-func (postupgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (done bool, err error) {
-	// Ensure cluster is up & running
-	sts, err := statefulset.ReconcileSts(ctx, p)
-	if err != nil {
-		return
-	}
-	if err = service.Reconcile(ctx, p); err != nil {
+func (preupgradeSyncHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (done bool, err error) {
+	// shortcut if handling one-member cluster
+	if len(p.Status.VolumeStatuses) == 1 {
+		done = true
 		return
 	}
 
-	if int(sts.Status.ReadyReplicas) != len(p.Spec.Nodes) {
+	pj := preupgradeSyncJob{p}
+
+	// Ensure cluster is up & running on maintenance port
+	if _, err = statefulset.ReconcileSts(ctx, p, statefulset.WithPostgresqlPort(pj.DBPort())); err != nil {
+		return
+	}
+	if err = service.ReconcileService(ctx, p, service.WithPostgresqlPort(pj.DBPort())); err != nil {
 		return
 	}
 
-	job, err := ensureUpgradeJob(ctx, p, postupgradeJob{p})
+	// Create/handle preupgrade job
+	job, err := ensureUpgradeJob(ctx, p, pj)
 	if err != nil {
 		return
 	}
@@ -75,29 +82,29 @@ func (postupgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgr
 	}
 
 	if job.Status.Failed > 0 {
-		err = errPostupgradeJobFailed
+		err = errPreupgradeSyncJobFailed
 	}
 
 	return
 }
 
-type postupgradeJob struct {
+type preupgradeSyncJob struct {
 	p *v1alpha1.PatroniPostgres
 }
 
 // ActiveDeadlineSeconds implements UpgradeJob.
-func (postupgradeJob) ActiveDeadlineSeconds() int64 {
-	return 3600
+func (preupgradeSyncJob) ActiveDeadlineSeconds() int64 {
+	return 300
 }
 
 // DBPort implements UpgradeJob.
-func (postupgradeJob) DBPort() int {
-	return service.PostgresPort
+func (preupgradeSyncJob) DBPort() int {
+	return postgresqlMaintenancePort
 }
 
 // Mode implements UpgradeJob.
-func (postupgradeJob) Mode() string {
-	return upgradecommon.UpgradeMODEPost
+func (preupgradeSyncJob) Mode() string {
+	return upgradecommon.UpgradeMODEPreSync
 }
 
-var _ UpgradeJob = postupgradeJob{}
+var _ UpgradeJob = preupgradeSyncJob{}

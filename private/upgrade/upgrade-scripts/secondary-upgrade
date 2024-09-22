@@ -3,34 +3,77 @@
 set -e
 
 test -n "${PRIMARY_ADDRESS}"
+test -n "${DB_CHECKPOINT}"
+test -n "${OLD}"
+test -n "${NEW}"
+test -n "${NEW_DB_SYSTEM_ID}"
 
-PGDATA=/var/lib/postgresql/data
-PGDATAOLD=${PGDATA}.old
+PGROOT=/var/lib/postgresql
+PGDATA=${PGROOT}/data
+PGDATANEW=${PGDATA}.new
+PGDATANEWDONE=${PGDATANEW}.done
+PGBINOLD=/usr/lib/postgresql/${OLD}/bin
+PGBINNEW=/usr/lib/postgresql/${NEW}/bin
 
+PGDATAPRESERVE=${PGDATA}.preserve
 PRESERVE_FILES="postgresql.conf postgresql.base.conf postgresql.auto.conf pg_hba.conf pg_ident.conf"
 
-while ! nc -w1 -z ${PRIMARY_ADDRESS} 5873 < /dev/null >/dev/null; do
-    echo "[-] Waiting for rsync daemon to start"
-    sleep 1
-done
+# Check for successful previous run (i.e. check db_system_id and version)
+existing_ver=$(cat $PGDATA/PG_VERSION 2>/dev/null)
+existing_db_system_id=$(${PGBINNEW}/pg_controldata ${PGDATA} 2>/dev/null | sed -n -r -e 's/^Database system identifier:[[:space:]]*//p')
 
-echo "[+] rsync daemon came up"
+if [ "${existing_db_system_id}" = "${NEW_DB_SYSTEM_ID}" -a "${existing_ver}" = "${NEW}" ]; then
+    echo "[+] Previous successful run detected, doing nothing"
+    exit 0
+fi
 
-mkdir -p "${PGDATAOLD}"
-for f in ${PRESERVE_FILES}; do
-    if [ -f "${PGDATA}/${f}" ]; then
-        if [ ! -f "${PGDATAOLD}/${f}" ]; then
-            cp "${PGDATA}/${f}" "${PGDATAOLD}/${f}"
-        fi
+# Create PGDATANEWDONE if not exists
+if ! test -d "${PGDATANEWDONE}" ; then
+    # Start from scratch
+    rm -rf "${PGDATANEW}"
+
+    OLD_PG_VERSION=$(cat $PGDATA/PG_VERSION 2>/dev/null)
+    DB_OLD_CHECKPOINT=$($PGBINOLD/pg_controldata $PGDATA 2>/dev/null | sed -n -r -e 's/^Latest checkpoint location:[[:space:]]*//p')
+
+    if [ "$OLD_PG_VERSION" = "$OLD" -a "$DB_OLD_CHECKPOINT" = "$DB_CHECKPOINT" ]; then
+        # Old datadir is present, Latest checkpoint location matches, do an incremental rsync
+        echo "[+] Latest checkpoint location match, doing quick rsync-based upgrade"
+
+        while ! nc -w1 -z ${PRIMARY_ADDRESS} 5873 < /dev/null >/dev/null; do
+            echo "[-] Waiting for rsync daemon to start"
+            sleep 1
+        done
+
+        echo "[+] rsync daemon came up"
+
+        mkdir -p "${PGDATAPRESERVE}"
+        for f in ${PRESERVE_FILES}; do
+            if [ -f "${PGDATA}/${f}" ]; then
+                if [ ! -f "${PGDATAPRESERVE}/${f}" ]; then
+                    cp "${PGDATA}/${f}" "${PGDATAPRESERVE}/${f}"
+                fi
+            fi
+        done
+
+        rsync --verbose --archive --delete --hard-links --size-only --no-inc-recursive --omit-dir-times --include='/data/***' --include='/data.new/***' --exclude='*' rsync://${PRIMARY_ADDRESS}:5873/postgresql/ ${PGROOT}
+
+        for f in ${PRESERVE_FILES}; do
+            if [ -f "${PGDATAPRESERVE}/${f}" ]; then
+                cp "${PGDATAPRESERVE}/${f}" "${PGDATANEW}/${f}"
+            fi
+        done
+
+        sync
+
+        mv "${PGDATANEW}" "${PGDATANEWDONE}"
+    else
+        # Latest checkpoint location mismatch, let patroni do a full initial backup
+        echo "[=] Latest checkpoint location mismatch, local=$DB_OLD_CHECKPOINT, expected=$DB_CHECKPOINT"
     fi
-done
+fi
 
-rsync -avH --delete rsync://${PRIMARY_ADDRESS}:5873/postgresql-data/ ${PGDATA}/
-
-for f in ${PRESERVE_FILES}; do
-    if [ -f "${PGDATAOLD}/${f}" ]; then
-        cp "${PGDATAOLD}/${f}" "${PGDATA}/${f}"
-    fi
-done
-
-rm -rf "${PGDATAOLD}"
+rm -rf "${PGDATA}"
+if test -d "${PGDATANEWDONE}"; then
+    rm -rf "${PGDATAPRESERVE}"
+    mv "${PGDATANEWDONE}" "${PGDATA}"
+fi

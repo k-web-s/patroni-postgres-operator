@@ -30,8 +30,11 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
@@ -44,32 +47,51 @@ const (
 	upgradeModeEnvVar = "MODE"
 )
 
+type UpgradeJob interface {
+	Mode() string
+	ActiveDeadlineSeconds() int64
+	DBPort() int
+}
+
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
 
-func createUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode string, activeDeadlineSeconds int64) (err error) {
-	var completions int32 = 1
+func ensureUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, j UpgradeJob) (job *batchv1.Job, err error) {
+	jobname := upgradeJobname(p, j)
+	job = &batchv1.Job{}
 
-	job := &batchv1.Job{
+	err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: jobname}, job)
+	if err == nil || !errors.IsNotFound(err) {
+		return
+	}
+
+	activeDeadlineSeconds := j.ActiveDeadlineSeconds()
+	enableServiceLinks := false
+
+	job = &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: upgradeJobname(p, mode),
+			Name: upgradeJobname(p, j),
 		},
 		Spec: batchv1.JobSpec{
 			ActiveDeadlineSeconds: &activeDeadlineSeconds,
-			Completions:           &completions,
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: ctx.CommonLabels(),
 				},
 				Spec: v1.PodSpec{
+					EnableServiceLinks: &enableServiceLinks,
 					Containers: []v1.Container{
 						{
-							Name:    mode,
+							Name:    j.Mode(),
 							Image:   operatorImage,
 							Command: []string{"/upgrade"},
 							Env: []v1.EnvVar{
 								{
 									Name:  "DBHOST",
 									Value: p.Name,
+								},
+								{
+									Name:  "DBPORT",
+									Value: fmt.Sprintf("%d", j.DBPort()),
 								},
 								{
 									Name:  "DBUSER",
@@ -92,7 +114,15 @@ func createUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode st
 								},
 								{
 									Name:  upgradeModeEnvVar,
-									Value: mode,
+									Value: j.Mode(),
+								},
+								{
+									Name:  "CLUSTER_NAME",
+									Value: p.Name,
+								},
+								{
+									Name:  "CLUSTER_SIZE",
+									Value: fmt.Sprintf("%d", len(p.Status.VolumeStatuses)),
 								},
 							},
 							Resources: v1.ResourceRequirements{
@@ -104,7 +134,7 @@ func createUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode st
 							SecurityContext: security.ContainerSecurityContext,
 						},
 					},
-					RestartPolicy:   v1.RestartPolicyOnFailure,
+					RestartPolicy:   v1.RestartPolicyNever,
 					SecurityContext: security.GenericPodSecurityContext,
 				},
 			},
@@ -122,6 +152,17 @@ func createUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, mode st
 	return
 }
 
-func upgradeJobname(p *v1alpha1.PatroniPostgres, mode string) string {
-	return fmt.Sprintf("%s-%s", p.Name, mode)
+// cleanupJob removes job if succeeded or failed (i.e. after a pod exited)
+func cleanupJob(ctx pcontext.Context, job *batchv1.Job) (err error) {
+	if job.Status.Succeeded+job.Status.Failed > 0 {
+		deletePropagationPolicy := metav1.DeletePropagationBackground
+
+		err = ctx.Delete(ctx, job, &client.DeleteOptions{PropagationPolicy: &deletePropagationPolicy})
+	}
+
+	return
+}
+
+func upgradeJobname(p *v1alpha1.PatroniPostgres, j UpgradeJob) string {
+	return fmt.Sprintf("%s-%s", p.Name, j.Mode())
 }

@@ -48,8 +48,6 @@ type secondaryUpgradeHandler struct {
 const (
 	rsyncPort     = 5873
 	rsyncPortName = "rsync"
-
-	rsyncImage = "ghcr.io/rkojedzinszky/webhost-images/static"
 )
 
 func (secondaryUpgradeHandler) name() v1alpha1.PatroniPostgresState {

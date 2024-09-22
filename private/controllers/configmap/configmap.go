@@ -40,8 +40,9 @@ import (
 )
 
 var (
-	ErrNoDBIDfound  = errors.New("no Database system identifier found")
-	ErrNoSyncLeader = errors.New("no sync leader found")
+	ErrNoDBIDfound                     = errors.New("no Database system identifier found")
+	ErrNoLatestCheckpointLocationFound = errors.New("no Latest Checkpoint Location found")
+	ErrNoSyncLeader                    = errors.New("no sync leader found")
 )
 
 const (
@@ -51,6 +52,10 @@ const (
 
 	syncCMLeaderAnnotation = "leader"
 	configCMdbidAnnotation = "initialize"
+
+	// during-upgrade annotations
+	configCMPrimaryInitdbArgs        = "primary-initdb-args"
+	configCMLatestCheckpointLocation = "latest-checkpoint-location"
 )
 
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update
@@ -95,11 +100,17 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	return
 }
 
-func GetDBId(ctx context.Context, p *v1alpha1.PatroniPostgres) (dbid string, err error) {
+func getConfigCM(ctx context.Context, p *v1alpha1.PatroniPostgres) (cm *corev1.ConfigMap, err error) {
 	cmName := fmt.Sprintf("%s-%s", p.Name, configCMName)
-	cm := &corev1.ConfigMap{}
+	cm = &corev1.ConfigMap{}
 
 	err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: cmName}, cm)
+
+	return
+}
+
+func GetDBId(ctx context.Context, p *v1alpha1.PatroniPostgres) (dbid string, err error) {
+	cm, err := getConfigCM(ctx, p)
 	if err != nil {
 		return
 	}
@@ -112,16 +123,84 @@ func GetDBId(ctx context.Context, p *v1alpha1.PatroniPostgres) (dbid string, err
 	return
 }
 
+// SetDBId sets Database system identifier
 func SetDBId(ctx context.Context, p *v1alpha1.PatroniPostgres, dbid string) (err error) {
-	cmName := fmt.Sprintf("%s-%s", p.Name, configCMName)
-	cm := &corev1.ConfigMap{}
-
-	err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: cmName}, cm)
+	cm, err := getConfigCM(ctx, p)
 	if err != nil {
 		return
 	}
 
+	// Set DBID
 	cm.ObjectMeta.Annotations[configCMdbidAnnotation] = dbid
+
+	err = ctx.Update(ctx, cm)
+
+	return
+}
+
+func GetPrimaryInitdbArgs(ctx context.Context, p *v1alpha1.PatroniPostgres) (args string, err error) {
+	cm, err := getConfigCM(ctx, p)
+	if err != nil {
+		return
+	}
+
+	args = cm.ObjectMeta.Annotations[configCMPrimaryInitdbArgs]
+
+	return
+}
+
+func SetPrimaryInitdbArgs(ctx context.Context, p *v1alpha1.PatroniPostgres, args string) (err error) {
+	cm, err := getConfigCM(ctx, p)
+	if err != nil {
+		return
+	}
+
+	cm.ObjectMeta.Annotations[configCMPrimaryInitdbArgs] = args
+
+	err = ctx.Update(ctx, cm)
+
+	return
+}
+
+func GetSecondaryStreamArgs(ctx context.Context, p *v1alpha1.PatroniPostgres) (LatestCheckpointLocation string, NewDBSystemId string, err error) {
+	cm, err := getConfigCM(ctx, p)
+	if err != nil {
+		return
+	}
+
+	LatestCheckpointLocation, ok := cm.ObjectMeta.Annotations[configCMLatestCheckpointLocation]
+	if !ok {
+		err = ErrNoLatestCheckpointLocationFound
+	}
+	NewDBSystemId, ok = cm.ObjectMeta.Annotations[configCMdbidAnnotation]
+	if !ok {
+		err = ErrNoDBIDfound
+	}
+
+	return
+}
+
+func SetLatestCheckpointLocation(ctx context.Context, p *v1alpha1.PatroniPostgres, LatestCheckpointLocation string) (err error) {
+	cm, err := getConfigCM(ctx, p)
+	if err != nil {
+		return
+	}
+
+	cm.ObjectMeta.Annotations[configCMLatestCheckpointLocation] = LatestCheckpointLocation
+
+	err = ctx.Update(ctx, cm)
+
+	return
+}
+
+func ClearUpgradeAnnotations(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
+	cm, err := getConfigCM(ctx, p)
+	if err != nil {
+		return
+	}
+
+	delete(cm.ObjectMeta.Annotations, configCMPrimaryInitdbArgs)
+	delete(cm.ObjectMeta.Annotations, configCMLatestCheckpointLocation)
 
 	err = ctx.Update(ctx, cm)
 
@@ -146,7 +225,6 @@ func GetSyncLeader(ctx context.Context, p *v1alpha1.PatroniPostgres) (index int,
 
 		splitted := strings.Split(leader, "-")
 		_, err = fmt.Sscanf(splitted[len(splitted)-1], "%d", &index)
-
 	}
 
 	return

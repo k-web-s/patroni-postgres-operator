@@ -33,6 +33,7 @@ import (
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
+	"github.com/k-web-s/patroni-postgres-operator/private/controllers/configmap"
 )
 
 var (
@@ -62,13 +63,16 @@ func init() {
 	primaryUpgrade = strings.ReplaceAll(primaryUpgrade, "$", "$$")
 	primaryStream = strings.ReplaceAll(primaryStream, "$", "$$")
 	secondaryUpgrade = strings.ReplaceAll(secondaryUpgrade, "$", "$$")
+	primaryUpgradeMove = strings.ReplaceAll(primaryUpgradeMove, "$", "$$")
 
 	var step *upgradestep
 	for _, handler := range []upgradehandler{
 		preupgradeHandler{},
+		preupgradeSyncHandler{},
 		scaledownHandler{},
 		primaryUpgradeHandler{},
 		secondaryUpgradeHandler{},
+		primaryUpgradeMoveHandler{},
 		postupgradeHandler{},
 	} {
 		if step != nil {
@@ -102,6 +106,8 @@ func Handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (ret ctrl.Result,
 		} else {
 			p.Status.State = v1alpha1.PatroniPostgresStateReady
 			p.Status.UpgradeVersion = 0
+
+			err = configmap.ClearUpgradeAnnotations(ctx, p)
 		}
 
 		ret.Requeue = true

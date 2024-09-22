@@ -47,7 +47,7 @@ import (
 )
 
 const (
-	Image             = "ghcr.io/rkojedzinszky/postgres-patroni:20240505"
+	Image             = "ghcr.io/rkojedzinszky/postgres-patroni:20240909"
 	postgresComponent = "postgres"
 	patroniPort       = 8008
 	patroniPortName   = "patroni"
@@ -60,7 +60,7 @@ const (
 
 // +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch;create;update;delete
 
-func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres) (sts *appsv1.StatefulSet, err error) {
+func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres, patches ...Patch) (sts *appsv1.StatefulSet, err error) {
 	var create bool
 
 	sts, err = GetK8SStatefulSet(ctx, p)
@@ -264,6 +264,11 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres) (sts *appsv1
 				Tolerations:      p.Spec.Tolerations,
 			},
 		},
+	}
+
+	// apply patches
+	for _, p := range patches {
+		p.Patch(sts)
 	}
 
 	sts.Spec.Template.Spec.Containers[0].Env = append(sts.Spec.Template.Spec.Containers[0].Env, genNodeTagsEnvs(p)...)

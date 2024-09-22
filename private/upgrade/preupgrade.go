@@ -26,16 +26,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package upgrade
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
-	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
-	"github.com/k-web-s/patroni-postgres-operator/private/upgrade/preupgrade"
+	"github.com/k-web-s/patroni-postgres-operator/private/controllers/configmap"
+	"github.com/k-web-s/patroni-postgres-operator/private/controllers/service"
+	upgradecommon "github.com/k-web-s/patroni-postgres-operator/private/upgrade/common"
 )
 
 var (
@@ -50,39 +56,107 @@ func (preupgradeHandler) name() v1alpha1.PatroniPostgresState {
 }
 
 func (preupgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (done bool, err error) {
-	// Ensure cluster is up & running
-	if _, err = statefulset.ReconcileSts(ctx, p); err != nil {
-		return
-	}
-
 	// Create/handle preupgrade job
-	job := &batchv1.Job{}
-	jobname := preupgradeJobname(p)
-
-	err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: jobname}, job)
+	job, err := ensureUpgradeJob(ctx, p, preupgradeJob{p})
 	if err != nil {
-		if !errors.IsNotFound(err) {
-			return
-		}
-
-		err = createUpgradeJob(ctx, p, preupgrade.ModeString, preupgrade.ActiveDeadlineSeconds)
-
 		return
 	}
 
 	if job.Status.Succeeded > 0 {
-		done = true
-	} else if job.Status.Failed > 0 {
-		if err = ctx.Delete(ctx, job); err != nil {
+		var config upgradecommon.Config
+		if err = getInitdbArgsFromJob(ctx, job, &config); err != nil {
 			return
 		}
 
+		if err = configmap.SetPrimaryInitdbArgs(ctx, p, parseConfigToInitdbArgs(&config)); err != nil {
+			return
+		}
+
+		done = true
+	}
+
+	if err = cleanupJob(ctx, job); err != nil {
+		return
+	}
+
+	if job.Status.Failed > 0 {
 		err = errPreupgradeJobFailed
 	}
 
 	return
 }
 
-func preupgradeJobname(p *v1alpha1.PatroniPostgres) string {
-	return upgradeJobname(p, preupgrade.ModeString)
+func getInitdbArgsFromJob(ctx pcontext.Context, job *batchv1.Job, config *upgradecommon.Config) (err error) {
+	var ls labels.Selector
+	if ls, err = metav1.LabelSelectorAsSelector(job.Spec.Selector); err != nil {
+		return
+	}
+
+	var pods v1.PodList
+	if err = ctx.List(ctx, &pods, &client.ListOptions{LabelSelector: ls}); err != nil {
+		return
+	}
+
+	if len(pods.Items) == 0 {
+		err = fmt.Errorf("no pod found for preprocess job")
+		return
+	}
+
+	pod := &pods.Items[0]
+
+	var tailLines int64 = 1
+	request := ctx.Clientset().CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{
+		TailLines: &tailLines,
+	})
+	var logs io.ReadCloser
+	if logs, err = request.Stream(ctx); err != nil {
+		return
+	}
+	defer logs.Close()
+	buf := make([]byte, 2048)
+	n, _ := logs.Read(buf)
+	if n == 0 {
+		err = fmt.Errorf("short read from pod logs")
+		return
+	}
+
+	err = json.Unmarshal(buf[:n], config)
+
+	return
 }
+
+func parseConfigToInitdbArgs(config *upgradecommon.Config) string {
+	var argsa []string
+	if config.Locale != "" {
+		argsa = append(argsa, fmt.Sprintf("--locale=%s", config.Locale))
+	}
+	if config.Encoding != "" {
+		argsa = append(argsa, fmt.Sprintf("--encoding=%s", config.Encoding))
+	}
+	if config.DataChecksums {
+		argsa = append(argsa, "--data-checksums")
+	}
+
+	return strings.Join(argsa, " ")
+}
+
+type preupgradeJob struct {
+	p *v1alpha1.PatroniPostgres
+}
+
+// ActiveDeadlineSeconds implements UpgradeJob.
+func (preupgradeJob) ActiveDeadlineSeconds() int64 {
+	return 300
+}
+
+// DBPort implements UpgradeJob.
+func (preupgradeJob) DBPort() int {
+	return service.PostgresPort
+}
+
+// Mode implements UpgradeJob.
+func (preupgradeJob) Mode() string {
+	return upgradecommon.UpgradeMODEPre
+}
+
+var _ UpgradeJob = preupgradeJob{}

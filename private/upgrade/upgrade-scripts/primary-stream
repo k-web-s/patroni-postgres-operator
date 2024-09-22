@@ -3,8 +3,8 @@
 cat <<EOF > /tmp/rsyncd.postgresql.conf
 port = 5873
 
-[postgresql-data]
-path = /var/lib/postgresql/data
+[postgresql]
+path = /var/lib/postgresql
 EOF
 
 exec rsync --daemon --no-detach --config=/tmp/rsyncd.postgresql.conf

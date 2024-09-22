@@ -23,9 +23,17 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package postupgrade
+package upgradecommon
 
 const (
-	ModeString            = "postupgrade"
-	ActiveDeadlineSeconds = 3600
+	UpgradeMODEPre     = "preupgrade"
+	UpgradeMODEPreSync = "preupgrade-sync"
+	UpgradeMODEPost    = "postuprgrade"
 )
+
+// preupgrade helper container will return this struct
+type Config struct {
+	Locale        string
+	Encoding      string
+	DataChecksums bool
+}

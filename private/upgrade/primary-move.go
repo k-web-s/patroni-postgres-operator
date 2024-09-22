@@ -29,76 +29,77 @@ import (
 	_ "embed"
 	"fmt"
 
-	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
+	"github.com/k-web-s/patroni-postgres-operator/private/controllers/configmap"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/pvc"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
 	"github.com/k-web-s/patroni-postgres-operator/private/security"
 )
 
 var (
-	//go:embed upgrade-scripts/primary-stream
-	primaryStream string
+	//go:embed upgrade-scripts/primary-upgrade-move
+	primaryUpgradeMove string
+
+	errPrimaryUpgradeMoveJobFailed = fmt.Errorf("primary upgrade move job failed")
 )
 
-// +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch;create;delete
+type primaryUpgradeMoveHandler struct {
+}
 
-func upgradeSecondariesEnsurestreamer(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, leader int) (sts *appsv1.StatefulSet, err error) {
-	sts = &appsv1.StatefulSet{}
-	name := fmt.Sprintf("%s-pstream", p.Name)
+func (primaryUpgradeMoveHandler) name() v1alpha1.PatroniPostgresState {
+	return v1alpha1.PatroniPostgresStateUpgradePrimaryMove
+}
 
-	if err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: name}, sts); err != nil {
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
+
+func (primaryUpgradeMoveHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (done bool, err error) {
+	job := &batchv1.Job{}
+	jobname := fmt.Sprintf("%s-move", p.Name)
+
+	err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: jobname}, job)
+	if err != nil {
 		if !errors.IsNotFound(err) {
 			return
 		}
 
-		labels := ctx.CommonLabels()
-		labels["upgrade"] = "pstream"
+		var leaderIndex int
+		leaderIndex, err = configmap.GetSyncLeader(ctx, p)
+		if err != nil {
+			return
+		}
 
-		sts = &appsv1.StatefulSet{
+		var activeDeadlineSeconds int64 = 600
+		var completions int32 = 1
+
+		job = &batchv1.Job{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: name,
+				Name: jobname,
 			},
-			Spec: appsv1.StatefulSetSpec{
-				Selector: &metav1.LabelSelector{
-					MatchLabels: labels,
-				},
-				ServiceName: name,
+			Spec: batchv1.JobSpec{
+				ActiveDeadlineSeconds: &activeDeadlineSeconds,
+				Completions:           &completions,
 				Template: v1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: labels,
+						Labels: ctx.CommonLabels(),
 					},
 					Spec: v1.PodSpec{
 						Containers: []v1.Container{
 							{
-								Name:    "pstream",
+								Name:    "primary-upgrade-move",
 								Image:   statefulset.Image,
-								Command: []string{"sh", "-c", primaryStream},
+								Command: []string{"sh", "-c", primaryUpgradeMove},
 								VolumeMounts: []v1.VolumeMount{
 									{
 										Name:      pvc.VolumeName,
 										MountPath: statefulset.DataVolumeMountPath,
-									},
-								},
-								Ports: []v1.ContainerPort{
-									{
-										Name:          rsyncPortName,
-										ContainerPort: rsyncPort,
-									},
-								},
-								ReadinessProbe: &v1.Probe{
-									ProbeHandler: v1.ProbeHandler{
-										TCPSocket: &v1.TCPSocketAction{
-											Port: intstr.FromString(rsyncPortName),
-										},
 									},
 								},
 								// only use requests
@@ -113,11 +114,12 @@ func upgradeSecondariesEnsurestreamer(ctx pcontext.Context, p *v1alpha1.PatroniP
 								Name: pvc.VolumeName,
 								VolumeSource: v1.VolumeSource{
 									PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-										ClaimName: p.Status.VolumeStatuses[leader].ClaimName,
+										ClaimName: p.Status.VolumeStatuses[leaderIndex].ClaimName,
 									},
 								},
 							},
 						},
+						RestartPolicy:    v1.RestartPolicyOnFailure,
 						SecurityContext:  security.DatabasePodSecurityContext,
 						ImagePullSecrets: p.Spec.ImagePullSecrets,
 						NodeSelector:     p.Spec.NodeSelector,
@@ -127,46 +129,34 @@ func upgradeSecondariesEnsurestreamer(ctx pcontext.Context, p *v1alpha1.PatroniP
 			},
 		}
 
-		if err = ctx.SetMeta(sts); err != nil {
+		if err = ctx.SetMeta(job); err != nil {
 			return
 		}
 
-		if err = ctx.Create(ctx, sts); err != nil {
+		err = ctx.Create(ctx, job)
+
+		return
+	}
+
+	// handle success
+	if job.Status.Succeeded > 0 {
+		p.Status.Version = p.Status.UpgradeVersion
+
+		done = true
+	}
+
+	// cleanup job in case of success/fail
+	if job.Status.Succeeded+job.Status.Failed > 0 {
+		deletePropagationPolicy := metav1.DeletePropagationBackground
+
+		if err = ctx.Delete(ctx, job, &client.DeleteOptions{PropagationPolicy: &deletePropagationPolicy}); err != nil {
 			return
 		}
 	}
 
-	service := &v1.Service{}
-
-	if err = ctx.Get(ctx, types.NamespacedName{Namespace: p.Namespace, Name: name}, service); err != nil {
-		if !errors.IsNotFound(err) {
-			return
-		}
-
-		service = &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: p.Namespace,
-				Name:      name,
-			},
-			Spec: v1.ServiceSpec{
-				Selector: sts.Spec.Template.Labels,
-				Ports: []v1.ServicePort{
-					{
-						Name:       rsyncPortName,
-						Port:       rsyncPort,
-						TargetPort: intstr.FromString(rsyncPortName),
-					},
-				},
-			},
-		}
-
-		if err = controllerutil.SetOwnerReference(sts, service, ctx.Scheme()); err != nil {
-			return
-		}
-
-		if err = ctx.Create(ctx, service); err != nil {
-			return
-		}
+	// handle failed case
+	if job.Status.Failed > 0 {
+		err = errPrimaryUpgradeMoveJobFailed
 	}
 
 	return

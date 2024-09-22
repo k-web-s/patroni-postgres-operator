@@ -38,6 +38,7 @@ import (
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
+	"github.com/k-web-s/patroni-postgres-operator/private/controllers/configmap"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/pvc"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
 	"github.com/k-web-s/patroni-postgres-operator/private/security"
@@ -51,6 +52,11 @@ var (
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create
 
 func upgradeSecondariesEnsureseclients(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, leader int, sts *appsv1.StatefulSet) (ret []*batchv1.Job, err error) {
+	latestCheckpointLocation, newDBSystemId, err := configmap.GetSecondaryStreamArgs(ctx, p)
+	if err != nil {
+		return
+	}
+
 	for idx := range p.Status.VolumeStatuses {
 		if idx == leader {
 			continue
@@ -64,7 +70,6 @@ func upgradeSecondariesEnsureseclients(ctx pcontext.Context, p *v1alpha1.Patroni
 			}
 
 			var activeDeadlineSeconds int64 = 600
-			var completions int32 = 1
 
 			job = &batchv1.Job{
 				ObjectMeta: metav1.ObjectMeta{
@@ -72,7 +77,6 @@ func upgradeSecondariesEnsureseclients(ctx pcontext.Context, p *v1alpha1.Patroni
 				},
 				Spec: batchv1.JobSpec{
 					ActiveDeadlineSeconds: &activeDeadlineSeconds,
-					Completions:           &completions,
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: ctx.CommonLabels(),
@@ -81,12 +85,28 @@ func upgradeSecondariesEnsureseclients(ctx pcontext.Context, p *v1alpha1.Patroni
 							Containers: []v1.Container{
 								{
 									Name:    "secondary-upgrade",
-									Image:   rsyncImage,
+									Image:   statefulset.Image,
 									Command: []string{"sh", "-c", secondaryUpgrade},
 									Env: []v1.EnvVar{
 										{
 											Name:  "PRIMARY_ADDRESS",
 											Value: sts.Name,
+										},
+										{
+											Name:  "DB_CHECKPOINT",
+											Value: latestCheckpointLocation,
+										},
+										{
+											Name:  "OLD",
+											Value: fmt.Sprintf("%d", p.Status.Version),
+										},
+										{
+											Name:  "NEW",
+											Value: fmt.Sprintf("%d", p.Status.UpgradeVersion),
+										},
+										{
+											Name:  "NEW_DB_SYSTEM_ID",
+											Value: newDBSystemId,
 										},
 									},
 									VolumeMounts: []v1.VolumeMount{
