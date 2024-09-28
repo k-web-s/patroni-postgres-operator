@@ -51,7 +51,10 @@ func preupgradefn(ctx context.Context) (err error) {
 		return
 	}
 
-	if err = dbconn.QueryRow(ctx, "SELECT current_setting('data_checksums')::bool").Scan(&cfg.DataChecksums); err != nil {
+	if err = dbconn.QueryRow(ctx, `SELECT
+		pg_catalog.current_setting('data_checksums')::bool,
+		pg_catalog.current_setting('max_prepared_transactions')::int`).
+		Scan(&cfg.DataChecksums, &cfg.MaxPreparedTransactions); err != nil {
 		return
 	}
 

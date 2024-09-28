@@ -45,7 +45,8 @@ import (
 )
 
 var (
-	errPreupgradeJobFailed = fmt.Errorf("preupgrade job failed")
+	errPreupgradeJobFailed            = fmt.Errorf("preupgrade job failed")
+	errMaxPreparedTransactionsNotZero = fmt.Errorf("max_prepared_transactions not zero, cannot continue")
 )
 
 type preupgradeHandler struct {
@@ -62,17 +63,23 @@ func (preupgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgre
 		return
 	}
 
+	var err2 error
+
 	if job.Status.Succeeded > 0 {
 		var config upgradecommon.Config
 		if err = getInitdbArgsFromJob(ctx, job, &config); err != nil {
 			return
 		}
 
-		if err = configmap.SetPrimaryInitdbArgs(ctx, p, parseConfigToInitdbArgs(&config)); err != nil {
-			return
-		}
+		if config.MaxPreparedTransactions != 0 {
+			err2 = errMaxPreparedTransactionsNotZero
+		} else {
+			if err = configmap.SetPrimaryInitdbArgs(ctx, p, parseConfigToInitdbArgs(&config)); err != nil {
+				return
+			}
 
-		done = true
+			done = true
+		}
 	}
 
 	if err = cleanupJob(ctx, job); err != nil {
@@ -81,6 +88,10 @@ func (preupgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgre
 
 	if job.Status.Failed > 0 {
 		err = errPreupgradeJobFailed
+	}
+
+	if err == nil {
+		err = err2
 	}
 
 	return

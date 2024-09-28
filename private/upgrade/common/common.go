@@ -36,4 +36,7 @@ type Config struct {
 	Locale        string
 	Encoding      string
 	DataChecksums bool
+
+	// preupgrade check results
+	MaxPreparedTransactions int
 }
