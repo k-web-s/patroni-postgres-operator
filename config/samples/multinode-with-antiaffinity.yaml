@@ -1,0 +1,14 @@
+# This defines a PatroniPostgres with 3 nodes with PVCs allocated via csi-driver-lvm-linear storageClass.
+# podAntiAffinityTopologyKey ensures that PODs will get scheduled to different hosts.
+apiVersion: kwebs.cloud/v1alpha1
+kind: PatroniPostgres
+metadata:
+  name: patroni-postgres
+spec:
+  version: 15
+  volumeSize: 5Gi
+  nodes:
+    - storageClassName: csi-driver-lvm-linear
+    - storageClassName: csi-driver-lvm-linear
+    - storageClassName: csi-driver-lvm-linear
+  podAntiAffinityTopologyKey: kubernetes.io/hostname

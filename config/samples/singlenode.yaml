@@ -1,0 +1,9 @@
+apiVersion: kwebs.cloud/v1alpha1
+kind: PatroniPostgres
+metadata:
+  name: patroni-postgres
+spec:
+  version: 15
+  volumeSize: 5Gi
+  nodes:
+    - storageClassName: default

@@ -1,0 +1,73 @@
+# This contains almost all options commented.
+apiVersion: kwebs.cloud/v1alpha1
+kind: PatroniPostgres
+metadata:
+  name: patroni-postgres
+spec:
+  # desired version, 13 or 15 right now
+  version: 13
+  # volume size of each node. Can be increased during object lifetime.
+  volumeSize: 5Gi
+  # desired nodes, at least storageClassName must be defined
+  nodes:
+    - storageClassName: csi-driver-lvm-linear
+      # desired accessMode, default is ReadWriteOnce
+      #accessMode: ReadWriteOnce|ReadWriteMany
+
+      # Patroni node tags, https://patroni.readthedocs.io/en/latest/yaml_configuration.html#tags
+      # Only nosync and nofailover are supported
+      # tags:
+      #   nofailover: false
+      #   nosync: false
+
+  # podAntiAffinityTopologyKey used with podAntiAffinity
+  #podAntiAffinityTopologyKey:
+
+  # POD nodeSelector
+  # nodeSelector:
+
+  # POD tolerations
+  # tolerations:
+
+  # accessControl defines access control for postgresql service
+  # Array of NetworkPolicyPeer, https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#networkpolicypeer-v1-networking-k8s-io
+  # accessControl:
+  # - podSelector:
+  #     matchLabels:
+  #       app.kubernetes.io/instance: web-backend
+  #       app.kubernetes.io/name: web-application
+
+  ## Following entries show an example usage with postgres-exporter as a sidecar container
+
+  # additional network policy for ingress traffic
+  # this example limits exporter access
+  # additionalNetworkPolicyIngress:
+  # - from:
+  #   - namespaceSelector:
+  #       matchLabels:
+  #         kubernetes.io/metadata.name: monitoring
+  #   ports:
+  #   - port: 9187
+  #     protocol: TCP
+
+  # example annotations added to all PODs
+  # annotations:
+  #   prometheus.io/port: "9187"
+  #   prometheus.io/scrape: "true"
+
+  # extra containers
+  # extraContainers:
+  # - envFrom:
+  #   - secretRef:
+  #       name: patroni-postgres-exporter
+  #   image: quay.io/prometheuscommunity/postgres-exporter
+  #   name: exporter
+  #   resources:
+  #     requests:
+  #       cpu: 10m
+  #       memory: 16Mi
+  #   securityContext:
+  #     allowPrivilegeEscalation: false
+  #     capabilities:
+  #       drop:
+  #       - ALL
