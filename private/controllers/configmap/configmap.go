@@ -46,9 +46,10 @@ var (
 )
 
 const (
-	configCMName = "config"
-	leaderCMName = "leader"
-	syncCMName   = "sync"
+	configCMName   = "config"
+	leaderCMName   = "leader"
+	syncCMName     = "sync"
+	failoverCMName = "failover"
 
 	syncCMLeaderAnnotation = "leader"
 	configCMdbidAnnotation = "initialize"
@@ -61,7 +62,7 @@ const (
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update
 
 func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
-	for _, name := range []string{configCMName, leaderCMName, syncCMName} {
+	for _, name := range []string{configCMName, leaderCMName, syncCMName, failoverCMName} {
 		cmName := fmt.Sprintf("%s-%s", p.Name, name)
 		cm := &corev1.ConfigMap{}
 
