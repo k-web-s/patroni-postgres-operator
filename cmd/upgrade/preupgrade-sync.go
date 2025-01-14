@@ -28,8 +28,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"net/netip"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -195,10 +198,43 @@ func syncRestorePoints(ctx context.Context) (err error) {
 	}
 }
 
+func pauseCluster(ctx context.Context) (err error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, fmt.Sprintf("http://%s:8008/config", *dbhost), strings.NewReader(`{"pause":true}`))
+	if err != nil {
+		return
+	}
+	req.Header.Add("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return
+	}
+
+	_, err = io.Copy(io.Discard, resp.Body)
+	if err != nil {
+		return
+	}
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		log.Print("patroni has been paused")
+	} else {
+		err = fmt.Errorf("unexpected http return status for pause request: %d", resp.StatusCode)
+	}
+
+	return
+}
+
 func preupgradesyncfn(ctx context.Context) (err error) {
 	for i := 0; i < *clustersize; i++ {
 		memberNames = append(memberNames, fmt.Sprintf("%s-%d", *clustername, i))
 	}
 
-	return syncRestorePoints(ctx)
+	if err = syncRestorePoints(ctx); err != nil {
+		return
+	}
+
+	return pauseCluster(ctx)
 }

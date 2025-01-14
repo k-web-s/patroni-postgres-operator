@@ -44,3 +44,18 @@ func (p withPostgresqlPort) Patch(s *corev1.Service) {
 func WithPostgresqlPort(port int) Patch {
 	return withPostgresqlPort(port)
 }
+
+type withPatroniAPI struct{}
+
+func (w withPatroniAPI) Patch(s *corev1.Service) {
+	s.Spec.Ports = append(s.Spec.Ports,
+		corev1.ServicePort{
+			Name:       "patroni",
+			Port:       8008,
+			TargetPort: intstr.FromInt(8008),
+		})
+}
+
+func WithPatroniAPI() Patch {
+	return withPatroniAPI{}
+}

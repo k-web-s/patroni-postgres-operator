@@ -26,6 +26,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package configmap
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -43,6 +44,7 @@ var (
 	ErrNoDBIDfound                     = errors.New("no Database system identifier found")
 	ErrNoLatestCheckpointLocationFound = errors.New("no Latest Checkpoint Location found")
 	ErrNoSyncLeader                    = errors.New("no sync leader found")
+	ErrNoConfigAnnotation              = errors.New("no config annotation found")
 )
 
 const (
@@ -51,8 +53,10 @@ const (
 	syncCMName     = "sync"
 	failoverCMName = "failover"
 
-	syncCMLeaderAnnotation = "leader"
-	configCMdbidAnnotation = "initialize"
+	syncCMLeaderAnnotation   = "leader"
+	configCMdbidAnnotation   = "initialize"
+	configCMconfigAnnotation = "config"
+	configPauseKey           = "pause"
 
 	// during-upgrade annotations
 	configCMPrimaryInitdbArgs        = "primary-initdb-args"
@@ -124,7 +128,7 @@ func GetDBId(ctx context.Context, p *v1alpha1.PatroniPostgres) (dbid string, err
 	return
 }
 
-// SetDBId sets Database system identifier
+// SetDBId sets Database system identifier after an upgrade, and resumes Patroni
 func SetDBId(ctx context.Context, p *v1alpha1.PatroniPostgres, dbid string) (err error) {
 	cm, err := getConfigCM(ctx, p)
 	if err != nil {
@@ -134,6 +138,23 @@ func SetDBId(ctx context.Context, p *v1alpha1.PatroniPostgres, dbid string) (err
 	// Set DBID
 	cm.ObjectMeta.Annotations[configCMdbidAnnotation] = dbid
 
+	// Resume Patroni
+	configs, ok := cm.ObjectMeta.Annotations[configCMconfigAnnotation]
+	if !ok {
+		return ErrNoConfigAnnotation
+	}
+	var config map[string]any
+	if err = json.Unmarshal([]byte(configs), &config); err != nil {
+		return
+	}
+	delete(config, configPauseKey)
+	configb, err := json.Marshal(config)
+	if err != nil {
+		return
+	}
+	cm.ObjectMeta.Annotations[configCMconfigAnnotation] = string(configb)
+
+	// update
 	err = ctx.Update(ctx, cm)
 
 	return

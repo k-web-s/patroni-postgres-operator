@@ -63,7 +63,7 @@ func (preupgradeSyncHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPos
 	if _, err = statefulset.ReconcileSts(ctx, p, statefulset.WithPostgresqlPort(pj.DBPort())); err != nil {
 		return
 	}
-	if err = service.ReconcileService(ctx, p, service.WithPostgresqlPort(pj.DBPort())); err != nil {
+	if err = service.ReconcileService(ctx, p, service.WithPostgresqlPort(pj.DBPort()), service.WithPatroniAPI()); err != nil {
 		return
 	}
 
