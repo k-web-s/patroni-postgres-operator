@@ -144,15 +144,16 @@ type PatroniPostgresSpec struct {
 type PatroniPostgresState string
 
 const (
-	PatroniPostgresStateScaling               PatroniPostgresState = "scaling"
-	PatroniPostgresStateReady                 PatroniPostgresState = "ready"
-	PatroniPostgresStateUpgradePreupgrade     PatroniPostgresState = "upgrade-preupgrade"
-	PatroniPostgresStateUpgradePreupgradeSync PatroniPostgresState = "upgrade-preupgrade-sync"
-	PatroniPostgresStateUpgradeScaleDown      PatroniPostgresState = "upgrade-scaledown"
-	PatroniPostgresStateUpgradePrimary        PatroniPostgresState = "upgrade-primary"
-	PatroniPostgresStateUpgradeSecondaries    PatroniPostgresState = "upgrade-secondaries"
-	PatroniPostgresStateUpgradePrimaryMove    PatroniPostgresState = "upgrade-primary-move"
-	PatroniPostgresStateUpgradePostupgrade    PatroniPostgresState = "upgrade-postupgrade"
+	PatroniPostgresStateScaling                    PatroniPostgresState = "scaling"
+	PatroniPostgresStateReady                      PatroniPostgresState = "ready"
+	PatroniPostgresStateUpgradePreupgrade          PatroniPostgresState = "upgrade-preupgrade"
+	PatroniPostgresStateUpgradePreupgradeScaleDown PatroniPostgresState = "upgrade-preupgrade-scaledown"
+	PatroniPostgresStateUpgradePreupgradeSync      PatroniPostgresState = "upgrade-preupgrade-sync"
+	PatroniPostgresStateUpgradeScaleDown           PatroniPostgresState = "upgrade-scaledown"
+	PatroniPostgresStateUpgradePrimary             PatroniPostgresState = "upgrade-primary"
+	PatroniPostgresStateUpgradeSecondaries         PatroniPostgresState = "upgrade-secondaries"
+	PatroniPostgresStateUpgradePrimaryMove         PatroniPostgresState = "upgrade-primary-move"
+	PatroniPostgresStateUpgradePostupgrade         PatroniPostgresState = "upgrade-postupgrade"
 )
 
 // PatroniPostgresStatus defines the observed state of PatroniPostgres

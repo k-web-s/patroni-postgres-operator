@@ -68,6 +68,7 @@ func init() {
 	var step *upgradestep
 	for _, handler := range []upgradehandler{
 		preupgradeHandler{},
+		preupgradeScaledownHandler{},
 		preupgradeSyncHandler{},
 		scaledownHandler{},
 		primaryUpgradeHandler{},
