@@ -63,7 +63,7 @@ func (preupgradeSyncHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPos
 	pj := preupgradeSyncJob{p}
 
 	// Ensure cluster is up & running on maintenance port
-	if _, err = statefulset.ReconcileSts(ctx, p, statefulset.WithPostgresqlPort(pj.DBPort())); err != nil {
+	if _, err = statefulset.ReconcileSts(ctx, p, statefulset.WithPostgresqlPort(pj.DBPort()), statefulset.WithPausedPatroni(p)); err != nil {
 		return
 	}
 	if err = service.ReconcileService(ctx, p, service.WithPostgresqlPort(pj.DBPort()), service.WithPatroniAPI()); err != nil {
@@ -111,8 +111,8 @@ func (preupgradeSyncJob) Mode() string {
 }
 
 // CustomizePodSpec implements UpgradeJob.
-func (preupgradeSyncJob) CustomizePodSpec(p *v1.PodSpec) {
-	p.Containers[0].Env = append(p.Containers[0].Env, v1.EnvVar{
+func (p preupgradeSyncJob) CustomizePodSpec(ps *v1.PodSpec) {
+	ps.Containers[0].Env = append(ps.Containers[0].Env, v1.EnvVar{
 		Name:  strings.ToUpper(upgradecommon.UpgradeMODEPauseFlag),
 		Value: "true",
 	})

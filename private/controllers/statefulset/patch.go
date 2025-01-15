@@ -30,6 +30,8 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 )
 
 type Patch interface {
@@ -47,4 +49,39 @@ func (p withPostgresqlPort) Patch(sts *appsv1.StatefulSet) {
 
 func WithPostgresqlPort(port int) Patch {
 	return withPostgresqlPort(port)
+}
+
+type withPausedPatroni int
+
+func (p withPausedPatroni) Patch(sts *appsv1.StatefulSet) {
+	sts.Spec.Template.Spec.Containers[0].Env = append(sts.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+		Name:  "PGDATA",
+		Value: fmt.Sprintf("%s/data", DataVolumeMountPath),
+	})
+
+	sts.Spec.Template.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{
+		PreStop: &corev1.LifecycleHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{
+					"sh",
+					"-c",
+					`
+host=
+eval $(sed -n -r -e "/^primary_conninfo[[:space:]]*=/{s/^.*=[[:space:]]*'//; s/'.*$//; p}" ${PGDATA}/postgresql.conf)
+if [ -n "$host" ]; then
+  echo "Waiting for primary to shutdown"
+  while nc -z -w 1 "$host" "$port"; do
+	  sleep 1
+	done
+fi
+
+/usr/lib/postgresql/${PG_VERSION}/bin/pg_ctl stop -D ${PGDATA} -m  fast -w`,
+				},
+			},
+		},
+	}
+}
+
+func WithPausedPatroni(p *v1alpha1.PatroniPostgres) Patch {
+	return withPausedPatroni(p.Status.Version)
 }
