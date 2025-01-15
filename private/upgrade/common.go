@@ -51,6 +51,7 @@ type UpgradeJob interface {
 	Mode() string
 	ActiveDeadlineSeconds() int64
 	DBPort() int
+	CustomizePodSpec(*v1.PodSpec)
 }
 
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
@@ -140,6 +141,8 @@ func ensureUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, j Upgra
 			},
 		},
 	}
+
+	j.CustomizePodSpec(&job.Spec.Template.Spec)
 
 	if err = ctx.SetMeta(job); err != nil {
 		return

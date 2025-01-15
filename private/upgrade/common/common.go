@@ -26,9 +26,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package upgradecommon
 
 const (
-	UpgradeMODEPre     = "preupgrade"
-	UpgradeMODEPreSync = "preupgrade-sync"
-	UpgradeMODEPost    = "postuprgrade"
+	UpgradeMODEPre       = "preupgrade"
+	UpgradeMODEPreSync   = "preupgrade-sync"
+	UpgradeMODEPauseFlag = "pause"
+	UpgradeMODEPost      = "postuprgrade"
 )
 
 // preupgrade helper container will return this struct

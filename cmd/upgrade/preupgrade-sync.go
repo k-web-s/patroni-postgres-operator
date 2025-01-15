@@ -39,11 +39,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/namsral/flag"
+
+	upgradecommon "github.com/k-web-s/patroni-postgres-operator/private/upgrade/common"
 )
 
 var (
 	clustername = flag.String("cluster-name", "", "Cluster (StatefulSet) name to derive POD names from")
 	clustersize = flag.Int("cluster-size", 0, "Cluster size to use for replication progress checking")
+	pause       = flag.Bool(upgradecommon.UpgradeMODEPauseFlag, false, "Pause cluster before exiting")
 
 	memberNames []string
 )
@@ -236,5 +239,11 @@ func preupgradesyncfn(ctx context.Context) (err error) {
 		return
 	}
 
-	return pauseCluster(ctx)
+	if *pause {
+		if err = pauseCluster(ctx); err != nil {
+			return
+		}
+	}
+
+	return
 }

@@ -28,8 +28,9 @@ package upgrade
 import (
 	"fmt"
 
-	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
+	v1 "k8s.io/api/core/v1"
 
+	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/service"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
@@ -98,6 +99,10 @@ func (postupgradeJob) DBPort() int {
 // Mode implements UpgradeJob.
 func (postupgradeJob) Mode() string {
 	return upgradecommon.UpgradeMODEPost
+}
+
+// CustomizePodSpec implements UpgradeJob.
+func (postupgradeJob) CustomizePodSpec(*v1.PodSpec) {
 }
 
 var _ UpgradeJob = postupgradeJob{}

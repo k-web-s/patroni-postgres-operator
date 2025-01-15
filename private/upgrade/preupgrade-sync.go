@@ -27,6 +27,9 @@ package upgrade
 
 import (
 	"fmt"
+	"strings"
+
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
 	pcontext "github.com/k-web-s/patroni-postgres-operator/private/context"
@@ -105,6 +108,14 @@ func (preupgradeSyncJob) DBPort() int {
 // Mode implements UpgradeJob.
 func (preupgradeSyncJob) Mode() string {
 	return upgradecommon.UpgradeMODEPreSync
+}
+
+// CustomizePodSpec implements UpgradeJob.
+func (preupgradeSyncJob) CustomizePodSpec(p *v1.PodSpec) {
+	p.Containers[0].Env = append(p.Containers[0].Env, v1.EnvVar{
+		Name:  strings.ToUpper(upgradecommon.UpgradeMODEPauseFlag),
+		Value: "true",
+	})
 }
 
 var _ UpgradeJob = preupgradeSyncJob{}

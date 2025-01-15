@@ -170,4 +170,8 @@ func (preupgradeJob) Mode() string {
 	return upgradecommon.UpgradeMODEPre
 }
 
+// CustomizePodSpec implements UpgradeJob.
+func (preupgradeJob) CustomizePodSpec(*v1.PodSpec) {
+}
+
 var _ UpgradeJob = preupgradeJob{}
