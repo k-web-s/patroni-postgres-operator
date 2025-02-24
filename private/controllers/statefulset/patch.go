@@ -75,6 +75,9 @@ if [ -n "$host" ]; then
 	done
 fi
 
+echo "Delaying shutdown of replica"
+sleep 2
+
 /usr/lib/postgresql/${PG_VERSION}/bin/pg_ctl stop -D ${PGDATA} -m  fast -w`,
 				},
 			},
