@@ -39,7 +39,6 @@ help: ## Display this help.
 
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) crd $(CRD_OPTIONS) rbac:roleName=kwebs-patroni-postgres-operator webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	cat config/manager/manager.yaml config/rbac/service_account.yaml config/rbac/leader_election_role.yaml config/rbac/leader_election_role_binding.yaml config/rbac/role.yaml config/rbac/role_binding.yaml config/crd/bases/kwebs.cloud_patronipostgres.yaml > config/deploy.yaml
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."

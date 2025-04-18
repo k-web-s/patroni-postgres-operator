@@ -5,13 +5,12 @@ metadata:
   labels:
     control-plane: kwebs-patroni-postgres-operator
     pod-security.kubernetes.io/enforce: restricted
-  name: kwebs-patroni-postgres-operator
+  name: operator
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kwebs-patroni-postgres-operator
-  namespace: kwebs-patroni-postgres-operator
+  name: operator
   labels:
     control-plane: kwebs-patroni-postgres-operator
 spec:
@@ -62,5 +61,5 @@ spec:
             requests:
               cpu: 100m
               memory: 24Mi
-      serviceAccountName: kwebs-patroni-postgres-operator
+      serviceAccountName: operator
       terminationGracePeriodSeconds: 10

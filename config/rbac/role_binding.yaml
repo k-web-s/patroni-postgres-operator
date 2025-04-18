@@ -2,12 +2,11 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kwebs-patroni-postgres-operator
+  name: operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kwebs-patroni-postgres-operator
+  name: operator
 subjects:
   - kind: ServiceAccount
-    name: kwebs-patroni-postgres-operator
-    namespace: kwebs-patroni-postgres-operator
+    name: operator

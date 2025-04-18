@@ -11,7 +11,7 @@ Uses [postgres-patroni](https://github.com/rkojedzinszky/postgres-patroni) image
 To quickly deploy the operator, run:
 
 ```shell
-$ kubectl apply -f https://raw.githubusercontent.com/k-web-s/patroni-postgres-operator/refs/heads/main/config/deploy.yaml
+$ kubectl apply -k https://github.com/k-web-s/patroni-postgres-operator/config/default/
 ```
 
 ## Create a patronipostgres instance
