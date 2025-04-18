@@ -33,7 +33,7 @@ spec:
 The number of `node` definitions specifies the cluster size. At least each node definition must have a `storageClassName` attribute. See full [reference](api/v1alpha1/patronipostgres_types.go). The operator will create a service with the same name as the object, which can be used to access the patronipostgres cluster. No users/databases are created. Superuser credentials are stored in a secret with the same name as the object. Superuser username is `postgres`, and the password can be obtained by:
 
 ```shell
-$ kubectl --context=pi-kubernetes -n db get secret patroni-postgres --template '{{index .data "superuser-password"}}' | base64 -d
+$ kubectl -n db get secret patroni-postgres --template '{{index .data "superuser-password"}}' | base64 -d
 ```
 
 Check more [samples](config/samples/).
