@@ -27,6 +27,7 @@ package upgrade
 
 import (
 	_ "embed"
+	"flag"
 	"strings"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,7 +38,7 @@ import (
 )
 
 var (
-	operatorImage = "ghcr.io/k-web-s/patroni-postgres-operator"
+	upgradeImage = flag.String("upgrade-image", "ghcr.io/k-web-s/patroni-postgres-operator", "Patroni Postgres Operator image")
 )
 
 type upgradehandler interface {

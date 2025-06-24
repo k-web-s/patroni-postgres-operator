@@ -83,7 +83,7 @@ func ensureUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, j Upgra
 					Containers: []v1.Container{
 						{
 							Name:    j.Mode(),
-							Image:   operatorImage,
+							Image:   *upgradeImage,
 							Command: []string{"/upgrade"},
 							Env: []v1.EnvVar{
 								{
