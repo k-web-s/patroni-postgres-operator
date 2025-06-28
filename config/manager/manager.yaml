@@ -31,7 +31,7 @@ spec:
         - args:
             - --leader-elect
             - --upgrade-image=ghcr.io/k-web-s/patroni-postgres-operator
-          image: ghcr.io/k-web-s/patroni-postgres-operator:20250624
+          image: ghcr.io/k-web-s/patroni-postgres-operator:20250628
           name: manager
           env:
             - name: GOMEMLIMIT
@@ -57,10 +57,10 @@ spec:
             periodSeconds: 10
           resources:
             limits:
-              cpu: 100m
-              memory: 32Mi
+              cpu: 1
+              memory: 48Mi
             requests:
-              cpu: 100m
-              memory: 24Mi
+              cpu: 10m
+              memory: 32Mi
       serviceAccountName: operator
       terminationGracePeriodSeconds: 10
