@@ -31,12 +31,13 @@ spec:
         - args:
             - --leader-elect
             - --upgrade-image=ghcr.io/k-web-s/patroni-postgres-operator
-          image: ghcr.io/k-web-s/patroni-postgres-operator:20250628
+          image: ghcr.io/k-web-s/patroni-postgres-operator:20250629
           name: manager
           env:
             - name: GOMEMLIMIT
               valueFrom:
                 resourceFieldRef:
+                  divisor: "1"
                   resource: requests.memory
           securityContext:
             allowPrivilegeEscalation: false
