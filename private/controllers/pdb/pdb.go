@@ -40,7 +40,7 @@ var (
 	maxUnavailable = intstr.FromInt(1)
 )
 
-// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=list;watch;create;update
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;create;update
 
 func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	policyName := p.Name

@@ -97,6 +97,9 @@ func (preupgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgre
 	return
 }
 
+// +kubebuilder:rbac:groups="",resources=pods,verbs=list
+// +kubebuilder:rbac:groups="",resources=pods/log,verbs=get
+
 func getInitdbArgsFromJob(ctx pcontext.Context, job *batchv1.Job, config *upgradecommon.Config) (err error) {
 	var ls labels.Selector
 	if ls, err = metav1.LabelSelectorAsSelector(job.Spec.Selector); err != nil {

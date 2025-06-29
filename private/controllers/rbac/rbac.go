@@ -36,8 +36,7 @@ import (
 	"github.com/k-web-s/patroni-postgres-operator/private/context"
 )
 
-// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles;rolebindings,verbs=get;list;watch;create;update
-// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;create;update
 
 func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	if err = reconcileServiceAccount(ctx, p); err != nil {
@@ -54,6 +53,8 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 
 	return
 }
+
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;create;update
 
 func reconcileServiceAccount(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	serviceAccount := &corev1.ServiceAccount{}

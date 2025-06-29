@@ -42,7 +42,7 @@ const (
 	VolumeName = "pgdata"
 )
 
-// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=list;watch;create;patch;delete
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=list;create;patch;delete
 
 func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	var lo client.ListOption

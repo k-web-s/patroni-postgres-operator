@@ -54,7 +54,7 @@ type UpgradeJob interface {
 	CustomizePodSpec(*v1.PodSpec)
 }
 
-// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;create;delete
 
 func ensureUpgradeJob(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, j UpgradeJob) (job *batchv1.Job, err error) {
 	jobname := upgradeJobname(p, j)

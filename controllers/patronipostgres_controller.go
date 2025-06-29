@@ -147,6 +147,10 @@ func (r *PatroniPostgresReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	return
 }
 
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=list;watch
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=list;watch
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=list;watch
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *PatroniPostgresReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// watch only for status upgrades (i.e. no generation changes)

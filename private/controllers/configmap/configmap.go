@@ -63,7 +63,7 @@ const (
 	configCMLatestCheckpointLocation = "latest-checkpoint-location"
 )
 
-// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;create;update
 
 func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	for _, name := range []string{configCMName, leaderCMName, syncCMName, failoverCMName} {

@@ -61,7 +61,7 @@ func (primaryUpgradeHandler) name() v1alpha1.PatroniPostgresState {
 	return v1alpha1.PatroniPostgresStateUpgradePrimary
 }
 
-// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;create;delete
 
 func (primaryUpgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (done bool, err error) {
 	job := &batchv1.Job{}

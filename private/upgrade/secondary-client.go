@@ -49,7 +49,7 @@ var (
 	secondaryUpgrade string
 )
 
-// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;create
 
 func upgradeSecondariesEnsureseclients(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, leader int, sts *appsv1.StatefulSet) (ret []*batchv1.Job, err error) {
 	latestCheckpointLocation, newDBSystemId, err := configmap.GetSecondaryStreamArgs(ctx, p)

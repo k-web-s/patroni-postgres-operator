@@ -43,7 +43,7 @@ const (
 	ReplicationUserPasswordKey = "replication-password"
 )
 
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;create;update
 
 func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	secret := &corev1.Secret{}

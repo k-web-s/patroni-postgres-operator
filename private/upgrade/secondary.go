@@ -54,7 +54,8 @@ func (secondaryUpgradeHandler) name() v1alpha1.PatroniPostgresState {
 	return v1alpha1.PatroniPostgresStateUpgradeSecondaries
 }
 
-// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=delete
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=delete
 
 func (secondaryUpgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPostgres) (done bool, err error) {
 	// shortcut if handling one-member cluster

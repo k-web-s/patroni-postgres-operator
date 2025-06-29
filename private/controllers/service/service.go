@@ -46,7 +46,7 @@ const (
 	PostgresPortName = "postgres"
 )
 
-// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;create;update
 
 func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	return ReconcileService(ctx, p)

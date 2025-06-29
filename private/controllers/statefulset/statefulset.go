@@ -58,7 +58,7 @@ const (
 	DataVolumeMountPath = "/var/lib/postgresql"
 )
 
-// +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;create;update
 
 func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres, patches ...Patch) (sts *appsv1.StatefulSet, err error) {
 	var create bool

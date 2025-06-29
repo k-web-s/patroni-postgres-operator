@@ -37,7 +37,7 @@ import (
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/service"
 )
 
-// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;create;update
 
 func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 	policyName := p.Name

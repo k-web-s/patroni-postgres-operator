@@ -11,9 +11,7 @@ rules:
   verbs:
   - create
   - get
-  - list
   - update
-  - watch
 - apiGroups:
   - ""
   resources:
@@ -54,9 +52,7 @@ rules:
   verbs:
   - create
   - get
-  - list
   - update
-  - watch
 - apiGroups:
   - ""
   resources:
@@ -64,9 +60,7 @@ rules:
   verbs:
   - create
   - get
-  - list
   - update
-  - watch
 - apiGroups:
   - ""
   resources:
@@ -74,9 +68,7 @@ rules:
   verbs:
   - create
   - get
-  - list
   - update
-  - watch
 - apiGroups:
   - apps
   resources:
@@ -131,18 +123,15 @@ rules:
   verbs:
   - create
   - get
-  - list
   - update
-  - watch
 - apiGroups:
   - policy
   resources:
   - poddisruptionbudgets
   verbs:
   - create
-  - list
+  - get
   - update
-  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -151,6 +140,4 @@ rules:
   verbs:
   - create
   - get
-  - list
   - update
-  - watch

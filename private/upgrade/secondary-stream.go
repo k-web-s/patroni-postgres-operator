@@ -49,7 +49,8 @@ var (
 	primaryStream string
 )
 
-// +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;create
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;create
 
 func upgradeSecondariesEnsurestreamer(ctx pcontext.Context, p *v1alpha1.PatroniPostgres, leader int) (sts *appsv1.StatefulSet, err error) {
 	sts = &appsv1.StatefulSet{}
