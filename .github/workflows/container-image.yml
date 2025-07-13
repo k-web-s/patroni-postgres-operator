@@ -18,15 +18,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Setup additional tags
+        id: tags
+        run: |
+          echo "DATE=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
+
       - uses: actions/setup-go@v3
 
       - name: Compile
         env:
           CGO_ENABLED: 0
+          UPGRADE_IMAGE_LDFLAG: -X github.com/k-web-s/patroni-postgres-operator/private/upgrade.defaultUpgradeImage=${{ env.REGISTRY }}/${{ github.repository }}:${{ steps.tags.outputs.DATE }}
         run: |
-          GOARCH=amd64 go build -ldflags -s -o patroni-postgres-operator.amd64 .
-          GOARCH=arm   go build -ldflags -s -o patroni-postgres-operator.arm   .
-          GOARCH=arm64 go build -ldflags -s -o patroni-postgres-operator.arm64 .
+          GOARCH=amd64 go build -ldflags -s -ldflags "$UPGRADE_IMAGE_LDFLAG" -o patroni-postgres-operator.amd64 .
+          GOARCH=arm   go build -ldflags -s -ldflags "$UPGRADE_IMAGE_LDFLAG" -o patroni-postgres-operator.arm   .
+          GOARCH=arm64 go build -ldflags -s -ldflags "$UPGRADE_IMAGE_LDFLAG" -o patroni-postgres-operator.arm64 .
 
           GOARCH=amd64 go build -ldflags -s -o upgrade.amd64 ./cmd/upgrade/
           GOARCH=arm   go build -ldflags -s -o upgrade.arm   ./cmd/upgrade/
@@ -44,11 +50,6 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ github.token }}
-
-      - name: Setup additional tags
-        id: tags
-        run: |
-          echo "DATE=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
 
       - name: Extract metadata (tags, labels)
         id: meta

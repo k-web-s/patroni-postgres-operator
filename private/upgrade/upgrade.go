@@ -38,7 +38,8 @@ import (
 )
 
 var (
-	upgradeImage = flag.String("upgrade-image", "ghcr.io/k-web-s/patroni-postgres-operator", "Patroni Postgres Operator image")
+	defaultUpgradeImage = "ghcr.io/k-web-s/patroni-postgres-operator"
+	upgradeImage        = flag.String("upgrade-image", defaultUpgradeImage, "Patroni Postgres Operator image")
 )
 
 type upgradehandler interface {

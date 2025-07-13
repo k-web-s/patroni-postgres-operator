@@ -30,8 +30,7 @@ spec:
       containers:
         - args:
             - --leader-elect
-            - --upgrade-image=ghcr.io/k-web-s/patroni-postgres-operator
-          image: ghcr.io/k-web-s/patroni-postgres-operator:20250629
+          image: ghcr.io/k-web-s/patroni-postgres-operator
           name: manager
           env:
             - name: GOMEMLIMIT
