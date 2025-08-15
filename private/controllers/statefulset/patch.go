@@ -71,14 +71,15 @@ eval $(sed -n -r -e "/^primary_conninfo[[:space:]]*=/{s/^.*=[[:space:]]*'//; s/'
 if [ -n "$host" ]; then
   echo "Waiting for primary to shutdown"
   while nc -z -w 1 "$host" "$port"; do
-	  sleep 1
-	done
+    sleep 1
+  done
+
+  echo "Delaying shutdown of replica"
+  sleep 2
 fi
 
-echo "Delaying shutdown of replica"
-sleep 2
-
-/usr/lib/postgresql/${PG_VERSION}/bin/pg_ctl stop -D ${PGDATA} -m  fast -w`,
+/usr/lib/postgresql/${PG_VERSION}/bin/pg_ctl stop -D ${PGDATA} -m fast -w
+`,
 				},
 			},
 		},
