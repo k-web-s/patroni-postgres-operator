@@ -107,7 +107,7 @@ func getInitdbArgsFromJob(ctx pcontext.Context, job *batchv1.Job, config *upgrad
 	}
 
 	var pods v1.PodList
-	if err = ctx.List(ctx, &pods, &client.ListOptions{LabelSelector: ls}); err != nil {
+	if err = ctx.List(ctx, &pods, &client.ListOptions{Namespace: job.Namespace, LabelSelector: ls}); err != nil {
 		return
 	}
 
