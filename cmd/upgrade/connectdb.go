@@ -79,7 +79,18 @@ func connectdb(ctx context.Context, options ...connectoption) (*pgx.Conn, error)
 		opt.apply(config)
 	}
 
-	return pgx.ConnectConfig(ctx, config)
+	retries := 10
+	for {
+		conn, err := pgx.ConnectConfig(ctx, config)
+		if err == nil {
+			return conn, nil
+		}
+		if retries == 0 {
+			return nil, err
+		}
+		time.Sleep(time.Second)
+		retries--
+	}
 }
 
 // connectprimarydb connects to primary database. Returns connection or
