@@ -1,0 +1,3 @@
+resources:
+- pvc-management-admissionpolicy.yaml
+- pvc-management-admissionpolicybinding.yaml

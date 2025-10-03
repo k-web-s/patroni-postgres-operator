@@ -33,6 +33,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -55,6 +56,31 @@ const (
 	patroniReplicationUsername = "standby"
 
 	DataVolumeMountPath = "/var/lib/postgresql"
+
+	pvcManagementAnnotation      = "patronipostgres.kwebs.cloud/pvc-management"
+	pvcManagementAnnotationValue = "by-operator"
+)
+
+var (
+	// dataPVCTemplate
+	dataPVCTemplate = corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: pvc.VolumeName,
+			Annotations: map[string]string{
+				pvcManagementAnnotation: pvcManagementAnnotationValue,
+			},
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteOnce,
+			},
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse("1Mi"),
+				},
+			},
+		},
+	}
 )
 
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;create;update
@@ -118,16 +144,7 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres, patches ...P
 			MatchLabels: clusterLabels,
 		},
 		VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: pvc.VolumeName,
-				},
-				Spec: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{
-						corev1.ReadWriteOnce,
-					},
-				},
-			},
+			dataPVCTemplate,
 		},
 		PodManagementPolicy: appsv1.ParallelPodManagement,
 		MinReadySeconds:     60,
