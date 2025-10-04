@@ -117,6 +117,20 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres, patches ...P
 	}
 	labelsString := string(labelsBytes)
 
+	// assign Spec for new objects
+	if create {
+		sts.Spec = appsv1.StatefulSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: clusterLabels,
+			},
+			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+				dataPVCTemplate,
+			},
+			ServiceName:         service.HeadlessServiceName(p),
+			PodManagementPolicy: appsv1.ParallelPodManagement,
+		}
+	}
+
 	// Handle PodAntiAffinityTopologyKey
 	affinity := p.Spec.Affinity.DeepCopy()
 	if p.Spec.PodAntiAffinityTopologyKey != "" {
@@ -139,146 +153,136 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres, patches ...P
 		)
 	}
 
-	sts.Spec = appsv1.StatefulSetSpec{
-		Selector: &metav1.LabelSelector{
-			MatchLabels: clusterLabels,
+	sts.Spec.MinReadySeconds = 60
+	sts.Spec.Replicas = &replicas
+	sts.Spec.Template = corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      podLabels,
+			Annotations: p.Spec.Annotations,
 		},
-		VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
-			dataPVCTemplate,
-		},
-		PodManagementPolicy: appsv1.ParallelPodManagement,
-		MinReadySeconds:     60,
-		Replicas:            &replicas,
-		ServiceName:         service.HeadlessServiceName(p),
-		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels:      podLabels,
-				Annotations: p.Spec.Annotations,
-			},
-			Spec: corev1.PodSpec{
-				Affinity:           affinity,
-				ServiceAccountName: rbac.ServiceAccountName(p),
-				EnableServiceLinks: &enableServiceLinks,
-				Containers: []corev1.Container{
-					{
-						Name:  "postgres",
-						Image: Image,
-						Env: []corev1.EnvVar{
-							{
-								Name:  "PG_VERSION",
-								Value: fmt.Sprintf("%d", p.Status.Version),
-							},
-							{
-								Name: "PATRONI_KUBERNETES_POD_IP",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "status.podIP",
-									},
-								},
-							},
-							{
-								Name: "PATRONI_KUBERNETES_NAMESPACE",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.namespace",
-									},
-								},
-							},
-							{
-								Name: "PATRONI_NAME",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.name",
-									},
-								},
-							},
-							{
-								Name:  "PATRONI_SCOPE",
-								Value: p.Name,
-							},
-							{
-								Name:  "PATRONI_KUBERNETES_LABELS",
-								Value: labelsString,
-							},
-							{
-								Name:  "PATRONI_SUPERUSER_USERNAME",
-								Value: PatroniSuperuserUsername,
-							},
-							{
-								Name: "PATRONI_SUPERUSER_PASSWORD",
-								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: &corev1.SecretKeySelector{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: secret.Name(p),
-										},
-										Key: secret.SuperUserPasswordKey,
-									},
-								},
-							},
-							{
-								Name:  "PATRONI_REPLICATION_USERNAME",
-								Value: patroniReplicationUsername,
-							},
-							{
-								Name: "PATRONI_REPLICATION_PASSWORD",
-								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: &corev1.SecretKeySelector{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: secret.Name(p),
-										},
-										Key: secret.ReplicationUserPasswordKey,
-									},
-								},
-							},
-							{
-								Name:  "PATRONI_INITIAL_SYNCHRONOUS_MODE",
-								Value: "true",
-							},
+		Spec: corev1.PodSpec{
+			Affinity:           affinity,
+			ServiceAccountName: rbac.ServiceAccountName(p),
+			EnableServiceLinks: &enableServiceLinks,
+			Containers: []corev1.Container{
+				{
+					Name:  "postgres",
+					Image: Image,
+					Env: []corev1.EnvVar{
+						{
+							Name:  "PG_VERSION",
+							Value: fmt.Sprintf("%d", p.Status.Version),
 						},
-						Ports: []corev1.ContainerPort{
-							{
-								Name:          service.PostgresPortName,
-								ContainerPort: service.PostgresPort,
-							},
-							{
-								Name:          patroniPortName,
-								ContainerPort: patroniPort,
-							},
-						},
-						Resources: p.Spec.Resources,
-						LivenessProbe: &corev1.Probe{
-							ProbeHandler: corev1.ProbeHandler{
-								HTTPGet: &corev1.HTTPGetAction{
-									Path: "/liveness",
-									Port: intstr.FromInt(patroniPort),
+						{
+							Name: "PATRONI_KUBERNETES_POD_IP",
+							ValueFrom: &corev1.EnvVarSource{
+								FieldRef: &corev1.ObjectFieldSelector{
+									FieldPath: "status.podIP",
 								},
 							},
 						},
-						ReadinessProbe: &corev1.Probe{
-							ProbeHandler: corev1.ProbeHandler{
-								HTTPGet: &corev1.HTTPGetAction{
-									Path: "/readiness",
-									Port: intstr.FromInt(patroniPort),
+						{
+							Name: "PATRONI_KUBERNETES_NAMESPACE",
+							ValueFrom: &corev1.EnvVarSource{
+								FieldRef: &corev1.ObjectFieldSelector{
+									FieldPath: "metadata.namespace",
 								},
 							},
-							InitialDelaySeconds: 5,
-							// Workaround until https://github.com/kubernetes/kubernetes/issues/119234 is fixed
-							SuccessThreshold: 3,
 						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      pvc.VolumeName,
-								MountPath: DataVolumeMountPath,
+						{
+							Name: "PATRONI_NAME",
+							ValueFrom: &corev1.EnvVarSource{
+								FieldRef: &corev1.ObjectFieldSelector{
+									FieldPath: "metadata.name",
+								},
 							},
 						},
-						SecurityContext: security.ContainerSecurityContext,
+						{
+							Name:  "PATRONI_SCOPE",
+							Value: p.Name,
+						},
+						{
+							Name:  "PATRONI_KUBERNETES_LABELS",
+							Value: labelsString,
+						},
+						{
+							Name:  "PATRONI_SUPERUSER_USERNAME",
+							Value: PatroniSuperuserUsername,
+						},
+						{
+							Name: "PATRONI_SUPERUSER_PASSWORD",
+							ValueFrom: &corev1.EnvVarSource{
+								SecretKeyRef: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: secret.Name(p),
+									},
+									Key: secret.SuperUserPasswordKey,
+								},
+							},
+						},
+						{
+							Name:  "PATRONI_REPLICATION_USERNAME",
+							Value: patroniReplicationUsername,
+						},
+						{
+							Name: "PATRONI_REPLICATION_PASSWORD",
+							ValueFrom: &corev1.EnvVarSource{
+								SecretKeyRef: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: secret.Name(p),
+									},
+									Key: secret.ReplicationUserPasswordKey,
+								},
+							},
+						},
+						{
+							Name:  "PATRONI_INITIAL_SYNCHRONOUS_MODE",
+							Value: "true",
+						},
 					},
+					Ports: []corev1.ContainerPort{
+						{
+							Name:          service.PostgresPortName,
+							ContainerPort: service.PostgresPort,
+						},
+						{
+							Name:          patroniPortName,
+							ContainerPort: patroniPort,
+						},
+					},
+					Resources: p.Spec.Resources,
+					LivenessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/liveness",
+								Port: intstr.FromInt(patroniPort),
+							},
+						},
+					},
+					ReadinessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/readiness",
+								Port: intstr.FromInt(patroniPort),
+							},
+						},
+						InitialDelaySeconds: 5,
+						// Workaround until https://github.com/kubernetes/kubernetes/issues/119234 is fixed
+						SuccessThreshold: 3,
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      pvc.VolumeName,
+							MountPath: DataVolumeMountPath,
+						},
+					},
+					SecurityContext: security.ContainerSecurityContext,
 				},
-				SecurityContext:  security.DatabasePodSecurityContext,
-				ImagePullSecrets: p.Spec.ImagePullSecrets,
-				NodeSelector:     p.Spec.NodeSelector,
-				Tolerations:      p.Spec.Tolerations,
 			},
+			SecurityContext:  security.DatabasePodSecurityContext,
+			ImagePullSecrets: p.Spec.ImagePullSecrets,
+			NodeSelector:     p.Spec.NodeSelector,
+			Tolerations:      p.Spec.Tolerations,
 		},
 	}
 
