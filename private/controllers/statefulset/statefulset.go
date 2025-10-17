@@ -239,6 +239,14 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres, patches ...P
 							Name:  "PATRONI_INITIAL_SYNCHRONOUS_MODE",
 							Value: "true",
 						},
+						{
+							Name:  "PATRONI_KUBERNETES_LEADER_LABEL_VALUE",
+							Value: service.PatroniPodRole_Master,
+						},
+						{
+							Name:  "PATRONI_KUBERNETES_TMP_ROLE_LABEL",
+							Value: service.Patroni4PodRoleKey,
+						},
 					},
 					Ports: []corev1.ContainerPort{
 						{

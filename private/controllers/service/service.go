@@ -42,6 +42,9 @@ const (
 	PatroniPodRoleKey     = "role"
 	PatroniPodRole_Master = "master"
 
+	Patroni4PodRoleKey      = "patroni4_role"
+	Patroni4PodRole_Primary = "primary"
+
 	PostgresPort     = 5432
 	PostgresPortName = "postgres"
 )
