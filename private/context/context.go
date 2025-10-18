@@ -27,6 +27,7 @@ package context
 
 import (
 	gocontext "context"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -35,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/k-web-s/patroni-postgres-operator/api/v1alpha1"
+	"github.com/k-web-s/patroni-postgres-operator/private/image"
 )
 
 const (
@@ -69,15 +71,24 @@ type Context interface {
 
 	// Clientset returns *kubernetes.Clientset
 	Clientset() *kubernetes.Clientset
+
+	// Image returns the current image to be used
+	Image() image.Image
 }
 
-func New(ctx gocontext.Context, cl client.Client, clientset *kubernetes.Clientset, pp *v1alpha1.PatroniPostgres) Context {
+func New(ctx gocontext.Context, cl client.Client, clientset *kubernetes.Clientset, pp *v1alpha1.PatroniPostgres) (Context, error) {
+	im := image.GetImage(pp.Status.Version)
+	if im == nil {
+		return nil, fmt.Errorf("wctx: unsupported version: %d", pp.Spec.Version)
+	}
+
 	return &context{
 		Context:   ctx,
 		Client:    cl,
 		clientset: clientset,
 		pp:        pp,
-	}
+		im:        im,
+	}, nil
 }
 
 type context struct {
@@ -85,6 +96,7 @@ type context struct {
 	client.Client
 	clientset *kubernetes.Clientset
 	pp        *v1alpha1.PatroniPostgres
+	im        image.Image
 }
 
 func (c *context) CommonLabels() (ret map[string]string) {
@@ -122,4 +134,8 @@ func (c *context) SetMeta(m metav1.Object) error {
 
 func (c *context) Clientset() *kubernetes.Clientset {
 	return c.clientset
+}
+
+func (c *context) Image() image.Image {
+	return c.im
 }

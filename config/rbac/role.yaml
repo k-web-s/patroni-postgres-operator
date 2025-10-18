@@ -11,14 +11,6 @@ rules:
   verbs:
   - create
   - get
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  - pods
-  verbs:
-  - get
   - list
   - patch
   - update
@@ -38,7 +30,11 @@ rules:
   resources:
   - pods
   verbs:
+  - get
   - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -49,21 +45,7 @@ rules:
   - ""
   resources:
   - secrets
-  verbs:
-  - create
-  - get
-  - update
-- apiGroups:
-  - ""
-  resources:
   - serviceaccounts
-  verbs:
-  - create
-  - get
-  - update
-- apiGroups:
-  - ""
-  resources:
   - services
   verbs:
   - create

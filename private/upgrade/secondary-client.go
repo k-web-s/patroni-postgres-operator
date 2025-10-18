@@ -85,7 +85,7 @@ func upgradeSecondariesEnsureseclients(ctx pcontext.Context, p *v1alpha1.Patroni
 							Containers: []v1.Container{
 								{
 									Name:    "secondary-upgrade",
-									Image:   statefulset.Image,
+									Image:   ctx.Image().Image(),
 									Command: []string{"sh", "-c", secondaryUpgrade},
 									Env: []v1.EnvVar{
 										{

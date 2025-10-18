@@ -1,3 +1,5 @@
 resources:
 - pvc-management-admissionpolicy.yaml
 - pvc-management-admissionpolicybinding.yaml
+- upgrade-admissionpolicy.yaml
+- upgrade-admissionpolicybinding.yaml

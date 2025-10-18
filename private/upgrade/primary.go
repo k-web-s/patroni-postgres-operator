@@ -107,7 +107,7 @@ func (primaryUpgradeHandler) handle(ctx pcontext.Context, p *v1alpha1.PatroniPos
 						Containers: []v1.Container{
 							{
 								Name:    "primary-upgrade",
-								Image:   statefulset.Image,
+								Image:   ctx.Image().Image(),
 								Command: []string{"sh", "-c", primaryUpgrade},
 								Env: []v1.EnvVar{
 									{

@@ -48,7 +48,6 @@ import (
 )
 
 const (
-	Image           = "ghcr.io/rkojedzinszky/postgres-patroni:20251015"
 	patroniPort     = 8008
 	patroniPortName = "patroni"
 
@@ -167,7 +166,7 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres, patches ...P
 			Containers: []corev1.Container{
 				{
 					Name:  "postgres",
-					Image: Image,
+					Image: ctx.Image().Image(),
 					Env: []corev1.EnvVar{
 						{
 							Name:  "PG_VERSION",
@@ -322,6 +321,7 @@ func Reconcile(ctx context.Context, p *v1alpha1.PatroniPostgres) (err error) {
 
 	if int(sts.Status.ReadyReplicas) == len(p.Spec.Nodes) {
 		p.Status.State = v1alpha1.PatroniPostgresStateReady
+		p.Status.UpgradeVersions = ctx.Image().UpgradeVersions(p.Status.Version)
 	} else {
 		p.Status.State = v1alpha1.PatroniPostgresStateScaling
 	}

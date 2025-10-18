@@ -27,6 +27,8 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"slices"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -51,6 +53,7 @@ import (
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/secret"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/service"
 	"github.com/k-web-s/patroni-postgres-operator/private/controllers/statefulset"
+	"github.com/k-web-s/patroni-postgres-operator/private/image"
 	"github.com/k-web-s/patroni-postgres-operator/private/upgrade"
 )
 
@@ -90,7 +93,26 @@ func (r *PatroniPostgresReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return
 	}
 
-	wctx := pcontext.New(ctx, r.Client, r.Clientset, instance)
+	// initialization
+	if instance.Status.State == "" {
+		if image.GetImage(instance.Spec.Version) == nil {
+			return ctrl.Result{}, fmt.Errorf("unsupported version %d", instance.Spec.Version)
+		}
+
+		instance.Status.Version = instance.Spec.Version
+		instance.Status.State = v1alpha1.PatroniPostgresStateScaling
+		instance.Status.VolumeStatuses = []v1alpha1.VolumeStatus{}
+
+		if err = r.Client.Status().Update(ctx, instance); err != nil {
+			return
+		}
+	}
+
+	wctx, err := pcontext.New(ctx, r.Client, r.Clientset, instance)
+	if err != nil {
+		return
+	}
+
 	defer func() {
 		if err == nil {
 			err = wctx.Status().Update(wctx, instance)
@@ -101,31 +123,25 @@ func (r *PatroniPostgresReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	logger.Info("reconciling")
 
-	// initialization
-	if instance.Status.State == "" {
-		instance.Status.Version = instance.Spec.Version
-		instance.Status.State = v1alpha1.PatroniPostgresStateScaling
-		instance.Status.VolumeStatuses = make([]v1alpha1.VolumeStatus, 0)
-
-		ret.Requeue = true
-		return
-	}
-
 	// handle upgrade
 	if instance.Status.UpgradeVersion != 0 {
 		return upgrade.Handle(wctx, instance)
 	}
 
 	if instance.Status.State == v1alpha1.PatroniPostgresStateReady {
-		if instance.Status.Version < instance.Spec.Version {
-			if _, err = configmap.GetSyncLeader(wctx, instance); err != nil {
+		if instance.Status.Version != instance.Spec.Version {
+			if slices.Contains(instance.Status.UpgradeVersions, instance.Spec.Version) {
+				if _, err = configmap.GetSyncLeader(wctx, instance); err != nil {
+					return
+				}
+
+				instance.Status.UpgradeVersion = instance.Spec.Version
+
+				ret.Requeue = true
 				return
 			}
 
-			instance.Status.UpgradeVersion = instance.Spec.Version
-
-			ret.Requeue = true
-			return
+			return ctrl.Result{}, fmt.Errorf("upgrade to version %d not supported. Available versions: %v", instance.Spec.Version, instance.Status.UpgradeVersions)
 		}
 	}
 

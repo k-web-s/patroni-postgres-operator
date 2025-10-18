@@ -81,7 +81,7 @@ func upgradeSecondariesEnsurestreamer(ctx pcontext.Context, p *v1alpha1.PatroniP
 						Containers: []v1.Container{
 							{
 								Name:    "pstream",
-								Image:   statefulset.Image,
+								Image:   ctx.Image().Image(),
 								Command: []string{"sh", "-c", primaryStream},
 								VolumeMounts: []v1.VolumeMount{
 									{

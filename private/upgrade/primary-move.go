@@ -94,7 +94,7 @@ func (primaryUpgradeMoveHandler) handle(ctx pcontext.Context, p *v1alpha1.Patron
 						Containers: []v1.Container{
 							{
 								Name:    "primary-upgrade-move",
-								Image:   statefulset.Image,
+								Image:   ctx.Image().Image(),
 								Command: []string{"sh", "-c", primaryUpgradeMove},
 								VolumeMounts: []v1.VolumeMount{
 									{

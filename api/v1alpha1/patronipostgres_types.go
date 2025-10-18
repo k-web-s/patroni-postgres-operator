@@ -72,7 +72,7 @@ type PatroniPostgresSpec struct {
 	// Ignore marks this instance to be ignored by the operator
 	Ignore bool `json:"ignore,omitempty"`
 
-	// +kubebuilder:validation:Enum:=13;15
+	// +kubebuilder:validation:Enum:=13;15;17
 	Version int `json:"version"`
 
 	// Nodes holds nodes's desired configuration.
@@ -172,6 +172,9 @@ type PatroniPostgresStatus struct {
 
 	// UpgradeVersion represents upgrade target version
 	UpgradeVersion int `json:"upgradeVersion,omitempty"`
+
+	// UpgradeVersions holds available versions to upgrade to
+	UpgradeVersions []int `json:"upgradeVersions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -179,6 +182,7 @@ type PatroniPostgresStatus struct {
 //+kubebuilder:printcolumn:JSONPath=.status.version,description="Current version",name=CVer,type=string
 //+kubebuilder:printcolumn:JSONPath=.status.ready,description="Ready replicas",name=Ready,type=integer
 //+kubebuilder:printcolumn:JSONPath=.status.state,description="Cluster state",name=State,type=string
+//+kubebuilder:printcolumn:JSONPath=.status.upgradeVersions,description="Available versions to upgrade to",name=UVer,type=string
 
 // PatroniPostgres is the Schema for the patronipostgres API
 type PatroniPostgres struct {
