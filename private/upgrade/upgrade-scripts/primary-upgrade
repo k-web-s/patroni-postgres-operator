@@ -1,6 +1,7 @@
 #!/bin/sh
 
 set -e
+cd /tmp
 
 test -n "${DB_SYSTEM_ID}"
 test -n "${OLD}"
@@ -55,7 +56,6 @@ if ! test -f "${PG_CONTROL_OLD}"; then
     done
 
     echo "[+] Upgrade successful"
-    rm -f delete_old_cluster.sh analyze_new_cluster.sh
 
     sync
 fi
