@@ -27,19 +27,17 @@ package security
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 const (
-	databaseUserId = 15432
+	databaseUserId int64 = 15432
 )
 
 var (
-	fsGroupChangePolicy = corev1.FSGroupChangeOnRootMismatch
-
 	// Generic container security contexts
 	ContainerSecurityContext = &corev1.SecurityContext{
-		AllowPrivilegeEscalation: pointer.Bool(false),
+		AllowPrivilegeEscalation: ptr.To(false),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{
 				"ALL",
@@ -50,7 +48,7 @@ var (
 	// GenericPodSecurityContext defines pod level security context
 	// for generic/other workloads (e.g. pre/post-upgrade jobs)
 	GenericPodSecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot: pointer.Bool(true),
+		RunAsNonRoot: ptr.To(true),
 		SeccompProfile: &corev1.SeccompProfile{
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
 		},
@@ -59,11 +57,11 @@ var (
 	// DatabasePodSecurityContext defines pod level security context
 	// for database workloads
 	DatabasePodSecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot:        pointer.Bool(true),
-		RunAsUser:           pointer.Int64(databaseUserId),
-		RunAsGroup:          pointer.Int64(databaseUserId),
-		FSGroup:             pointer.Int64(databaseUserId),
-		FSGroupChangePolicy: &fsGroupChangePolicy,
+		RunAsNonRoot:        ptr.To(true),
+		RunAsUser:           ptr.To(databaseUserId),
+		RunAsGroup:          ptr.To(databaseUserId),
+		FSGroup:             ptr.To(databaseUserId),
+		FSGroupChangePolicy: ptr.To(corev1.FSGroupChangeOnRootMismatch),
 		SeccompProfile: &corev1.SeccompProfile{
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
 		},
