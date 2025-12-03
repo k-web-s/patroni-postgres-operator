@@ -174,8 +174,7 @@ func (r *PatroniPostgresReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.PatroniPostgres{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &v1alpha1.PatroniPostgres{}),
-			builder.WithPredicates(watchPredicates)).
+		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &v1alpha1.PatroniPostgres{})).
 		Watches(&appsv1.StatefulSet{}, handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &v1alpha1.PatroniPostgres{}),
 			builder.WithPredicates(watchPredicates)).
 		Watches(&batchv1.Job{}, handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &v1alpha1.PatroniPostgres{}),
