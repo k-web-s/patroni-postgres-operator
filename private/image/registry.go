@@ -33,7 +33,7 @@ var (
 			versions: []int{13, 15},
 		},
 		{
-			image:    "ghcr.io/rkojedzinszky/postgres-patroni:20251019",
+			image:    "ghcr.io/rkojedzinszky/postgres-patroni:20260219",
 			versions: []int{15, 17},
 		},
 	}
