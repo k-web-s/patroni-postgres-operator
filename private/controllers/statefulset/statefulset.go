@@ -243,6 +243,10 @@ func ReconcileSts(ctx context.Context, p *v1alpha1.PatroniPostgres, patches ...P
 							Value: service.PatroniPodRole_Master,
 						},
 						{
+							Name:  "PATRONI_KUBERNETES_STANDBY_LEADER_LABEL_VALUE",
+							Value: service.PatroniPodRole_Master,
+						},
+						{
 							Name:  "PATRONI_KUBERNETES_TMP_ROLE_LABEL",
 							Value: service.Patroni4PodRoleKey,
 						},
